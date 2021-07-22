@@ -1,0 +1,52 @@
+<launch>
+    <param name="use_sim_time" value="true"/>
+
+    <!--启动配置好的rviz-->
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find liv_slam)/rviz/hdl_graph_slam.rviz" />
+
+    <!-- Parameters -->
+    <rosparam file="$(find liv_slam)/config/liv_params.yaml" command="load" />
+    
+    <node name="nmea_topic_driver" pkg="nmea_navsat_driver" type="nmea_topic_driver" output="screen" />
+
+    <node name="FilterFusionOdometry_node" pkg="liv_slam" type="FilterFusionOdometry" output="screen">
+
+        <param name="LidarPoseTopic" value="/LidarPose" />
+        <!--
+        <param name="ImuTopic" value="/imu/data" />      
+        <param name="GnssTopic" value="/fix" />
+        -->
+        
+        <param name="ImuTopic" value="/imu_raw" />      
+        <param name="GnssTopic" value="/gps/fix" />
+        
+        <param name="GnssFusionSwitch" value="true" />
+        <param name="GnssPathSwitch" value="true" />
+
+
+    </node>
+
+
+
+</launch>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

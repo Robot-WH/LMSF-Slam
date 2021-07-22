@@ -1,0 +1,78 @@
+<launch>
+    <param name="use_sim_time" value="true"/>
+
+    <!--启动配置好的rviz-->
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find liv_slam)/rviz/hdl_graph_slam.rviz" />
+
+    <!-- Parameters -->
+    <rosparam file="$(find liv_slam)/config/liv_params.yaml" command="load" />
+
+    <node name="LidarPreprocessing_node" pkg="liv_slam" type="OldPointCloudProcess" output="screen">
+        <param name="use_downsample_filter" value="true" />
+        <param name="downsample_resolution" value="0.5" />          <!-- 64线   0.45 -->
+        <param name="radius_r" value="1" /> 
+        <param name="radius_min_neighbors" value="5" /> 
+        <param name="distance_far_thresh" value="100" /> 
+        <param name="distance_near_thresh" value="2.0" /> 
+        <param name="based_frame_id" value="/lidar_odom" /> 
+    </node>
+    
+    <!--
+    <node name="Segmentation_node" pkg="liv_slam" type="Segmentation" output="screen">
+    </node>
+    -->
+    <!--scan - map -->
+    <node name="lidarOdometry_node" pkg="liv_slam" type="basic_lidar_odometry" output="screen">
+        
+        <param name="pointcloud_topic" value="/processed_points" />
+        <param name="keyframe_delta_trans" value="0.5" />
+        <param name="keyframe_delta_trans" value="0.5" />
+        <param name="keyframe_delta_angle" value="0.8" />
+        <param name="keyframe_delta_time" value="100.0" />
+        <param name="transform_thresholding" value="false" />
+        <param name="max_acceptable_trans" value="1.0" />
+        <param name="max_acceptable_angle" value="1.0" />
+        <!-- ICP, GICP, NDT, GICP_OMP, or NDT_OMP(recommended) -->
+        <param name="registration_method" value="NDT_OMP" />  
+        <param name="ndt_resolution" value="1" />                    <!-- 64线   2 -->
+        <param name="ndt_num_threads" value="8" />
+        <param name="ndt_nn_search_method" value="DIRECT7" />
+        <param name="windows_size" value="10" />
+        <param name="odom_frame_id" value="/odom" /> 
+        <param name="lidar_frame_id" value="/lidar_odom" /> 
+        
+    </node>
+    
+    <node name="BackEnd_node" pkg="liv_slam" type="BackEnd_node" output="screen">
+        <param name="enable_GNSS_optimize" value="false" />
+        <param name="enable_planeConstraint_optimize" value="false" />
+        <param name="Loop_ndt_resolution" value="3.0" />
+        <param name="Loop_score_thresh" value="1.0" />
+        <param name="odom_topic" value="/odom" />
+        <param name="points_topic" value="/processed_points" />
+    </node>      
+
+    <node pkg="liv_slam" type="map2odom_publisher.py" name="map2odom_publisher" />
+
+</launch>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

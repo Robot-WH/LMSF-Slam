@@ -1,0 +1,14 @@
+<launch>
+
+    <!-- Parameters -->
+    <rosparam file="$(find liv_slam)/config/params.yaml" command="load" />
+
+    <!--启动配置好的rviz-->
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find liv_slam)/rviz/rviz.rviz" />
+
+    <node pkg="liv_slam" type="imuPreintegration"   name="imuPreintegration_node"    output="screen" 	respawn="true"/>
+    <node pkg="liv_slam" type="PointCloudProcess"     name="LidarPreProcessing_node"   output="screen"     respawn="true"/>
+    <node pkg="liv_slam" type="FeatureExtraction"   name="FeatureExtraction_node"    output="screen"     respawn="true"/>
+    <node pkg="liv_slam" type="mapOptmization"      name="mapOptmization_node"       output="screen"     respawn="true"/>
+
+</launch>

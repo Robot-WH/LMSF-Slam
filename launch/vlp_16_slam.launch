@@ -1,0 +1,34 @@
+
+<launch>
+    <param name="use_sim_time" value="true"/>
+
+    <!--启动配置好的rviz-->
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find liv_slam)/rviz/hdl_graph_slam.rviz" />
+
+    <param name="scan_line" type="int" value="64" />
+    <!-- if 1, do mapping 10 Hz, if 2, do mapping 5 Hz. Suggest to use 1, it will adjust frequence automaticlly -->
+    <param name="mapping_skip_frame" type="int" value="1" />
+    <!-- remove too closed points -->
+    <param name="minimum_range" type="double" value="0.3"/>
+
+    <param name="mapping_line_resolution" type="double" value="0.2"/>
+    <param name="mapping_plane_resolution" type="double" value="0.4"/>
+
+    <node pkg="liv_slam" type="ascanRegistration" name="ascanRegistration" output="screen" />
+
+    <node pkg="liv_slam" type="alaserOdometry" name="alaserOdometry" output="screen" />
+
+    <node pkg="liv_slam" type="alaserMapping" name="alaserMapping" output="screen" />
+    
+    <node name="BackEnd_node" pkg="liv_slam" type="BackEnd_node" output="screen">
+        <param name="enable_GNSS_optimize" value="true" />
+        <param name="enable_plane_optimize" value="false" />
+        <param name="Loop_ndt_resolution" value="3.0" />
+        <param name="Loop_score_thresh" value="1.0" />
+        <param name="odom_topic" value="/odom" />
+        <param name="points_topic" value="/velodyne_points" />
+    </node>      
+
+    <node pkg="liv_slam" type="map2odom_publisher.py" name="map2odom_publisher" />
+
+</launch>
