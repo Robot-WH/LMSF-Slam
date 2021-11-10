@@ -5,6 +5,7 @@
 
 #include "utility.hpp"
 #include "Sensor/sensor.hpp"
+#include "Estimator/states.hpp"
 
 using namespace Sensor; 
 
@@ -24,7 +25,7 @@ namespace Model
             /**
              * @brief 预测PVQ
              */
-            virtual void ImuPredictPvq(CommonStates & states, ImuDataConstPtr const& curr_imu, Eigen::Vector3d const& acc_bias, 
+            virtual void ImuPredictPvq(Estimator::CommonStates & states, ImuDataConstPtr const& curr_imu, Eigen::Vector3d const& acc_bias, 
                                 Eigen::Vector3d const& gyro_bias) = 0; 
 
     };

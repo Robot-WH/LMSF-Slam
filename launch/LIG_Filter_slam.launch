@@ -11,7 +11,7 @@
 
     <node name="FilterFusionOdometry_node" pkg="liv_slam" type="FilterFusionOdometry" output="screen">
 
-        <param name="LidarPoseTopic" value="/LidarPose" />
+        <param name="LidarTopic" value="/Lidar" />
         <!--
         <param name="ImuTopic" value="/imu/data" />      
         <param name="GnssTopic" value="/fix" />

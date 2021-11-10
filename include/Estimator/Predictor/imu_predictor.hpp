@@ -27,20 +27,17 @@ namespace Estimator{
             float gyro_bias_noise_; 
 
             bool is_initialized = false; 
-
         public:
+            /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+            ImuPredictor() {}
 
             /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-            ImuPredictor()
-            {     
-            }
-
-            /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-            ImuPredictor(float const& acc_noise, float const& gyro_noise, 
-                         float const& acc_bias_noise, float const& gyro_bias_noise,
-                         std::shared_ptr<Model::ImuMotionModelInterface> imu_motion_model_ptr)
-            : acc_noise_(acc_noise), gyro_noise_(gyro_noise), acc_bias_noise_(acc_bias_noise), gyro_bias_noise_(gyro_bias_noise),
-              imu_motion_model_ptr_(imu_motion_model_ptr)
+            ImuPredictor( float const& acc_noise, float const& gyro_noise, 
+                                        float const& acc_bias_noise, float const& gyro_bias_noise,
+                                        std::shared_ptr<Model::ImuMotionModelInterface> imu_motion_model_ptr)
+                                        : acc_noise_(acc_noise), gyro_noise_(gyro_noise), 
+                                        acc_bias_noise_(acc_bias_noise), gyro_bias_noise_(gyro_bias_noise),
+                                        imu_motion_model_ptr_(imu_motion_model_ptr)
             {
                 last_imu_ = std::make_shared<ImuData>();
             }
@@ -91,11 +88,9 @@ namespace Estimator{
                 // 时间差 
                 const double delta_t = curr_imu->timestamp - states.common_states_.timestamp_;
                 const double delta_t2 = delta_t * delta_t;
-                 
                 // Acc and gyro.
                 const Eigen::Vector3d acc_unbias = 0.5 * (last_imu_->acc + curr_imu->acc) - states.acc_bias_;
                 const Eigen::Vector3d gyro_unbias = 0.5 * (last_imu_->gyro + curr_imu->gyro) - states.gyro_bias_;
-
                 // Error-state. Not needed.
                 // Fx
                 Eigen::Matrix<double, 15, 15> Fx = Eigen::Matrix<double, 15, 15>::Identity();
@@ -114,7 +109,6 @@ namespace Estimator{
                 }
 
                 Fx.block<3, 3>(6, 12)  = - Eigen::Matrix3d::Identity() * delta_t;
-
                 // Fi  IMU噪声转换矩阵   IMU噪声只是影响 速度、旋转、bias 
                 Eigen::Matrix<double, 15, 12> Fi = Eigen::Matrix<double, 15, 12>::Zero();
                 Fi.block<12, 12>(3, 0) = Eigen::Matrix<double, 12, 12>::Identity();

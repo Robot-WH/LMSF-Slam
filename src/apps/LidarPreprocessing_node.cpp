@@ -1,3 +1,4 @@
+
 #include <ros/ros.h>
 #include <iostream>
 #include <pcl_conversions/pcl_conversions.h>
@@ -15,7 +16,6 @@
  * 主要完成
  * 1 如果采用特征点的里程计    
  **/
-
 using namespace std;
 
 typedef pcl::PointXYZI PointT;
@@ -67,6 +67,7 @@ private:
   bool use_downsample_filter = false; 
 
 };
+
 // 初始化  
 void LidarPreprocessing::process_init()
 { 

@@ -1,21 +1,19 @@
 /*********************************************************************************************
  * @brief 基于滤波器的多传感器融合激光里程计
- * @details 3D激光雷达为主  融合IMU，GNSS  
+ * @details 3D激光雷达为主  融合IMU, wheels
  *          坐标系：车体坐标系(轮速计)： b    imu系： i    激光系： l   
  * @author wh.l
  * @date 2020.10.20
  *********************************************************************************************/
-#include "ros_bridge/LidarImuGnssFilterFusionOdometry_bridge.h"
+#include "ros_bridge/FilterFusionLIO_bridge.h"
 #include "ros_bridge/FusionOdometry_bridge_interface.h"
-#include "ros_bridge/FusionOdometry_bridge_factor.hpp"
-#include "Estimator/LidarImuGnss_filter_estimator_robotCentre.hpp"
-
+#include "ros_bridge/FusionOdometry_bridge_factory.hpp"
+#include "Estimator/LIO_filter_estimator_robotCentre.hpp"
 
 using namespace std;  
 using namespace Sensor; 
 
 // Estimator estimator;
-
 // std::condition_variable con;
 // double current_time = -1;
 // queue<sensor_msgs::ImuConstPtr> imu_buf;
@@ -40,18 +38,17 @@ using namespace Sensor;
 // bool init_imu = 1;
 // double last_imu_t = 0;
 
-
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char **argv)
 {
     ros::init(argc, argv, "FilterFusionOdometry_node");
     ROS_INFO("Started FilterFusionLidarOdometryBridge node");  
     // 构建工厂对象  
-    std::unique_ptr<FusionOdometryBridgeFactor> fusion_odometry_bridge_factor;  
-    fusion_odometry_bridge_factor.reset(new LidarImuGnssFusionOdometryBridgeFactor{});     // 变化 ！！！！！！！！！！！！！！      
+    std::unique_ptr<FusionOdometryBridgeFactory> fusion_odometry_bridge_factory;  
+    fusion_odometry_bridge_factory.reset(new LidarImuGnssFusionOdometryBridgeFactory{});     // 变化 ！！！！！！！！！！！！！！      
     
     std::unique_ptr<FusionOdometryBridgeInterface> fusion_odometry_bridge = std::move(
-        fusion_odometry_bridge_factor->CreateFusionOdometryBridgeObject() );  
+        fusion_odometry_bridge_factory->CreateFusionOdometryBridgeObject() );  
     // 融合线程  
     std::thread measurement_process{&FusionOdometryBridgeInterface::Process, &(*fusion_odometry_bridge)};
     ros::spin();

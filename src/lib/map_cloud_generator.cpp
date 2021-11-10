@@ -1,5 +1,4 @@
 #include <map_cloud_generator.hpp>
-
 #include <pcl/octree/octree_search.h>
 
 
@@ -10,7 +9,8 @@ MapCloudGenerator::~MapCloudGenerator() {
 
 }
 
-pcl::PointCloud<MapCloudGenerator::PointT>::Ptr MapCloudGenerator::generate(const std::vector<KeyFrameSnapshot::Ptr>& keyframes, double resolution) const {
+pcl::PointCloud<MapCloudGenerator::PointT>::Ptr MapCloudGenerator::generate(const std::vector<KeyFrameSnapshot::Ptr>& keyframes, double resolution) const 
+{
   if(keyframes.empty()) {
     std::cerr << "warning: keyframes empty!!" << std::endl;
     return nullptr;

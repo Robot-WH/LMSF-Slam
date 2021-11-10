@@ -205,7 +205,6 @@ void laserOdometryHandler(const nav_msgs::Odometry::ConstPtr &laserOdometry)
 // 这里获得的激光点云  要是去除了畸变后的 !!!!
 void cloudHandler(const sensor_msgs::PointCloud2ConstPtr& cloud_msg) 
 {
-
   // 当滑动窗口填满后   每2Hz添加添加一次  这个是为了限制最高频率 
   if(full)
   {
@@ -297,12 +296,11 @@ void MapOptimize()
         Eigen::Quaternionf q_a(delta_move.block<3, 3>(0, 0));
         q_a.normalize();   
         double da = std::acos(q_a.w())*2;     // 获得弧度    45度 约等于 0.8  
-
+        
         if(dx<keyframe_delta_trans&&da<keyframe_delta_angle)
         {
             break;
         }    
-
        }
 
        /************************************************************ 地图匹配校正 ***********************************************/

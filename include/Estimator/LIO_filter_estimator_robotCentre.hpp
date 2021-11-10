@@ -9,7 +9,7 @@
 #define _LIDARIMUGNSS_FILTER_ESTIMATOR_ROBOTCENTRE_HPP_
 
 #include "utility.hpp"
-#include "Estimator/LidarImuGnss_filter_estimator_interface.hpp"
+#include "Estimator/LIO_filter_estimator_interface.hpp"
 #include "Estimator/Predictor/imu_predictor.hpp"
 #include "Estimator/Correction/GNSS/gnss_correction.hpp"
 #include "Estimator/Correction/GNSS/gnss_correction_with_prior_constraint.hpp"
@@ -19,13 +19,13 @@
 namespace Estimator{
 
   /**
-   * @brief 使用滤波器融合IMU-GPS-LIDAR的里程计      
+   * @brief 使用滤波器融合IMU-LIDAR的里程计      
    * @details 估计的方式是以局部机体坐标系为中心
    *          变化主要有： 1. 滤波器  eskf/ieskf(主要是观测更新的区别，采取多态)    2. 估计的状态变量设置 (可以复用 ，采取模板)
    *            
    */
   template<typename EstimatedStates, int _dim_states >
-  class LidarImuGnssFilterEstimatorRobotCentre : public LidarImuGnssFilterEstimatorInterFace
+  class LidarImuFilterEstimatorRobotCentre : public LidarImuFilterEstimatorInterFace
   {
     private:
 
@@ -62,11 +62,11 @@ namespace Estimator{
         }
 
     public: 
-        LidarImuGnssFilterEstimatorRobotCentre(){}
-        ~LidarImuGnssFilterEstimatorRobotCentre(){}
+        LidarImuFilterEstimatorRobotCentre(){}
+        ~LidarImuFilterEstimatorRobotCentre(){}
         
         ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-        LidarImuGnssFilterEstimatorRobotCentre(string const& fusion_filter_name)
+        LidarImuFilterEstimatorRobotCentre(string const& fusion_filter_name)
         {
         }
         

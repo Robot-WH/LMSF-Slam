@@ -1,5 +1,5 @@
-#include <information_matrix_calculator.hpp>
 
+#include <information_matrix_calculator.hpp>
 #include <pcl/search/kdtree.h>
 #include <pcl/common/transforms.h>
 

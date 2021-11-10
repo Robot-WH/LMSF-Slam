@@ -1,7 +1,5 @@
 #include <keyframe.hpp>
-
 #include <boost/filesystem.hpp>
-
 #include <pcl/io/pcd_io.h>
 #include <g2o/core/sparse_optimizer.h>
 #include <g2o/types/slam3d/vertex_se3.h>

@@ -58,7 +58,6 @@ namespace Estimator{
                jacobian.block<2, 3>(3, 3) = K;
                jacobian.block<2, 3>(3, 6) = -K*GetSkewMatrix(states.common_states_.V_);
             }
-
-    };
+    }; // class PositionCorrectionWithPriorConstraint
 } // namespace Estimator 
 #endif

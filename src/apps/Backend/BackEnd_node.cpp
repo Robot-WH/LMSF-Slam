@@ -349,17 +349,15 @@ class SlidingWindowBackEnd
     Eigen::Quaterniond MAP2ENU2 = {0,0,0,0};       // Map到ENU系的旋转
     Eigen::Matrix4d Tme = Eigen::Matrix4d::Identity();
     Eigen::Matrix4d Til;
-
     ros::Time Optimize_previous_time = ros::Time(0);
     ros::Time Map_updata_previous_time = ros::Time(0);
-};
+}; // class SlidingWindowBackEnd
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 visualization_msgs::MarkerArray SlidingWindowBackEnd::createMarkerArray(const ros::Time& stamp) 
 {
   visualization_msgs::MarkerArray markers;
   markers.markers.resize(4);
-
   // node markers    位姿节点
   visualization_msgs::Marker& traj_marker = markers.markers[0];
   traj_marker.header.frame_id = "map";
@@ -367,10 +365,8 @@ visualization_msgs::MarkerArray SlidingWindowBackEnd::createMarkerArray(const ro
   traj_marker.ns = "nodes";
   traj_marker.id = 0;
   traj_marker.type = visualization_msgs::Marker::SPHERE_LIST;
-
   traj_marker.pose.orientation.w = 1.0;
   traj_marker.scale.x = traj_marker.scale.y = traj_marker.scale.z = 0.5;
-  
   // 数量
   traj_marker.points.resize(keyframes.size()+sliding_windows.size()+new_keyframe_queue.size());
   // 颜色
@@ -404,7 +400,6 @@ visualization_msgs::MarkerArray SlidingWindowBackEnd::createMarkerArray(const ro
     traj_marker.colors[new_keyframe_queue.size()+i].b = 0.0;
     traj_marker.colors[new_keyframe_queue.size()+i].a = 1.0;
   }  
-
   // 优化后位姿节点 
   for(int i=0; i<keyframes.size(); i++) 
   {
@@ -419,7 +414,6 @@ visualization_msgs::MarkerArray SlidingWindowBackEnd::createMarkerArray(const ro
     traj_marker.colors[new_keyframe_queue.size()+sliding_windows.size()+i].b = 1.0;
     traj_marker.colors[new_keyframe_queue.size()+sliding_windows.size()+i].a = 1.0;
   }   
-  
   // edge markers  边
   visualization_msgs::Marker& edge_marker = markers.markers[2];
   edge_marker.header.frame_id = "map";
@@ -427,14 +421,13 @@ visualization_msgs::MarkerArray SlidingWindowBackEnd::createMarkerArray(const ro
   edge_marker.ns = "edges";
   edge_marker.id = 2;
   edge_marker.type = visualization_msgs::Marker::LINE_LIST;
-
   edge_marker.pose.orientation.w = 1.0;
   edge_marker.scale.x = 0.1;
   // 这里要注意 ！！！！！！！！！！！！！！！！！
   edge_marker.points.resize(keyframes.size() * 2 * 2 * 2 + sliding_windows.size() * 2 * 2 * 2 + Loops.size() * 2);
   edge_marker.colors.resize(keyframes.size() * 2 * 2 * 2 + sliding_windows.size() * 2 * 2 * 2 + Loops.size() * 2);
-
   int i=0;
+
   for(int num = 0; num<keyframes.size(); num++) 
   {
     // 里程计边    Pc
@@ -478,11 +471,11 @@ visualization_msgs::MarkerArray SlidingWindowBackEnd::createMarkerArray(const ro
         i++;
       }
     }
-
     // 地面约束边  
     if(enable_planeConstraint_optimize)
     {
-      if(keyframes[num]->planeConstraint_Valid) {
+      if(keyframes[num]->planeConstraint_Valid) 
+      {
        Eigen::Vector3d plane = {pt1[0], pt1[1], 0};
 
        edge_marker.points[i*2].x = pt1.x();
@@ -544,7 +537,6 @@ visualization_msgs::MarkerArray SlidingWindowBackEnd::createMarkerArray(const ro
         i++;
       }
     }
-
     // 地面约束边  
     if(enable_planeConstraint_optimize)
     {
@@ -609,7 +601,6 @@ void SlidingWindowBackEnd::gnssInitialize(Sensor::GNSSData &first_gnss_data, Eig
   ROS_INFO_STREAM("GNSS init OK !  Map loc: "<<Gnss_init_Map_loc);
   ROS_INFO_STREAM("MAP->ENU:  "<< Tem.matrix());
   trans_odom2map = Tem;  
-
   // 如果有订阅者  发布odom到map坐标系的变换  
   if(odom2map_pub.getNumSubscribers()) 
   {
@@ -618,9 +609,7 @@ void SlidingWindowBackEnd::gnssInitialize(Sensor::GNSSData &first_gnss_data, Eig
     geometry_msgs::TransformStamped ts = matrix2transform(ros::Time::now(), trans_odom2map.matrix().cast<float>(), map_frame_id, odom_frame_id);
     odom2map_pub.publish(ts);
   }
-
-  /******************************* 将之前的坐标系转为导航系下 ********************************/
-
+  // 将之前的坐标系转为导航系下
   // 更新keyframe的Pose     由于 坐标系只是变化了一个旋转  所以这里乘的Tem 只有旋转没有平移 
   // 之后 会更新 trans_odom2map 
   for(auto& keyframe:keyframes)
@@ -792,7 +781,7 @@ void SlidingWindowBackEnd::GnssCallback(const sensor_msgs::ImuConstPtr& imu_msg,
 
   // 原始数据直接存放
   GNSS_queue.push_back(gnss_data);
-
+  
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -805,13 +794,11 @@ int SlidingWindowBackEnd::pairGnssOdomInBatch(std::vector<KeyFrame::Ptr> &odom_q
     GNSS_queue.clear();    // 清空无效的GNSS数据 
     return 0;  
   }
-
   // GNSS 容器为空 
   if(gnss_queue.empty()) 
   {
     return odom_queue.size();  
   }
-
   // ROS_INFO_STREAM("GNSS_queue size: "<<GNSS_queue.size());
   // 如果GNSS 队尾 即 最新的GNSS数据早于 最早的一帧关键帧数据  说明没有与关键帧匹配的GNSS数据  直接退出
   if(gnss_queue.back().time.toSec()<odom_queue.front()->stamp.toSec())
@@ -820,7 +807,6 @@ int SlidingWindowBackEnd::pairGnssOdomInBatch(std::vector<KeyFrame::Ptr> &odom_q
     GNSS_queue.clear();    // 清空无效的GNSS数据 
     return odom_queue.size();
   }
-  
   // 如果GNSS 队首 即 最早的GNSS数据晚于 最晚的一帧关键帧数据  说明没有与关键帧匹配的GNSS数据  直接退出
   if(gnss_queue.front().time.toSec()>odom_queue.back()->stamp.toSec())
   {
@@ -829,7 +815,6 @@ int SlidingWindowBackEnd::pairGnssOdomInBatch(std::vector<KeyFrame::Ptr> &odom_q
   }
   
   int count = 0;     // 处理的帧的数量 
-
   // 剩下的情况说明都有GNSS与关键帧有匹配的情况
   // ROS_INFO_STREAM("KEYFRAME SIZE: "<<wait_optimize_keyframes.size()<<"gps num: "<<gps_queue.size());
   for(auto& keyframe:odom_queue)
@@ -842,7 +827,6 @@ int SlidingWindowBackEnd::pairGnssOdomInBatch(std::vector<KeyFrame::Ptr> &odom_q
       GNSS_queue.pop_front();   // 头数据丢弃 
       if(GNSS_queue.empty())  return count;   
     }
-    
     // gps 比 keyframe 晚很多     无法匹配
     if(keyframe->stamp.toSec() - GNSS_queue.front().time.toSec() < -0.005)
     {
@@ -850,12 +834,10 @@ int SlidingWindowBackEnd::pairGnssOdomInBatch(std::vector<KeyFrame::Ptr> &odom_q
       // ROS_INFO_STREAM("keyframe - gps < -0.01" << keyframe->stamp.toSec() - GNSS_queue.front().time.toSec());
       continue;
     }
-
     // 当前数据合格    GNSSData 包括 经纬高以及 IMU测得的数据  
     Sensor::GNSSData gnss_data = GNSS_queue.front();                  
     GNSS_queue.pop_front();                    // 将头数据弹出
     Sensor::GNSSData lidar_gnss_data = gnss_data;      // 插值后 lidar位置处 的数据 
-
     // 判断是否需要插值     如果GNSS与keyframe的数据差距在 5ms以上 那么进行插值 
     if(fabs(keyframe->stamp.toSec() - gnss_data.time.toSec()) > 0.005)
     {
@@ -865,11 +847,10 @@ int SlidingWindowBackEnd::pairGnssOdomInBatch(std::vector<KeyFrame::Ptr> &odom_q
          GNSS_queue.push_back(gnss_data);  
          return count;       
        }
+
        Sensor::GNSSData gnss_data_2 = GNSS_queue.front();      // 取下一个      注意尾数据不要丢弃掉   要留着给下一次插值  
-      
        double t1 = keyframe->stamp.toSec() - gnss_data.time.toSec();
        double t2 = gnss_data_2.time.toSec() - keyframe->stamp.toSec();
-
        // 时间间隔太大  那么线性插值就不准了 
        if(t1+t2 > 0.2)   
        {
@@ -877,7 +858,6 @@ int SlidingWindowBackEnd::pairGnssOdomInBatch(std::vector<KeyFrame::Ptr> &odom_q
          count++;
          continue;
        }
-
       /************************************************* 进行插值  插值出 关键帧对应 IMU的 经纬高, 姿态 ********************************************/
       // 计算插值系数     
       double front_scale = t2 / (t2+t1);
@@ -889,7 +869,6 @@ int SlidingWindowBackEnd::pairGnssOdomInBatch(std::vector<KeyFrame::Ptr> &odom_q
         lidar_gnss_data.longitude = gnss_data_2.longitude*back_scale + gnss_data.longitude*front_scale;
         lidar_gnss_data.latitude = gnss_data_2.latitude*back_scale + gnss_data.latitude*front_scale;
         lidar_gnss_data.altitude = gnss_data_2.altitude*back_scale + gnss_data.altitude*front_scale; 
-
         // 对IMU的姿态进行插值 设置给  keyframe->orientation 
         Eigen::Quaterniond imu_front,imu_back;
         imu_front.w() = gnss_data.imu->orientation.w;
@@ -904,7 +883,6 @@ int SlidingWindowBackEnd::pairGnssOdomInBatch(std::vector<KeyFrame::Ptr> &odom_q
         Eigen::Quaterniond rotate_by_gnss;
         // 球面插值  
         lidar_gnss_data.IMU_orientation = imu_front.slerp(back_scale, imu_back);      
-
         /**************** 如果GNSS没有初始化  那么进行初始化   初始化主要是求 map->enu 的 Tem, 以及 Gnss_init_Map_loc   ***********************************/
         gnssInitialize(lidar_gnss_data, lidar_gnss_data.IMU_orientation, keyframe);    // 进行GNSS与MAP对齐  
         // 初始化后转换为Map坐标
@@ -915,7 +893,6 @@ int SlidingWindowBackEnd::pairGnssOdomInBatch(std::vector<KeyFrame::Ptr> &odom_q
         lidar_gnss_data.Lidar_Map_coords.x() = gnss_data_2.Lidar_Map_coords.x()*back_scale + gnss_data.Lidar_Map_coords.x()*front_scale;
         lidar_gnss_data.Lidar_Map_coords.y() = gnss_data_2.Lidar_Map_coords.y()*back_scale + gnss_data.Lidar_Map_coords.y()*front_scale;
         lidar_gnss_data.Lidar_Map_coords.z() = gnss_data_2.Lidar_Map_coords.z()*back_scale + gnss_data.Lidar_Map_coords.z()*front_scale;  
-
         // 对IMU的姿态进行插值 设置给  keyframe->orientation 
         Eigen::Quaterniond imu_front,imu_back;
         imu_front.w() = gnss_data.Lidar_Map_orientation.w();
@@ -926,7 +903,6 @@ int SlidingWindowBackEnd::pairGnssOdomInBatch(std::vector<KeyFrame::Ptr> &odom_q
         imu_back.x() = gnss_data_2.Lidar_Map_orientation.x();
         imu_back.y() = gnss_data_2.Lidar_Map_orientation.y();
         imu_back.z() = gnss_data_2.Lidar_Map_orientation.z();
-        
         // 球面插值  
         lidar_gnss_data.Lidar_Map_orientation = imu_front.slerp(back_scale, imu_back);       
       }
@@ -936,7 +912,6 @@ int SlidingWindowBackEnd::pairGnssOdomInBatch(std::vector<KeyFrame::Ptr> &odom_q
     {
       count++;
     }
-
     // 获得Lidar的GNSS在Map系的坐标     
     keyframe->utm_coord = lidar_gnss_data.Lidar_Map_coords;
     keyframe->orientation = lidar_gnss_data.Lidar_Map_orientation.normalized();   
@@ -955,7 +930,6 @@ bool SlidingWindowBackEnd::processDataInBatch()
   {
     return false;
   }
-
   // count 为 new_keyframe_queue 中处理的关键帧的数量 
   int count = pairGnssOdomInBatch(new_keyframe_queue, GNSS_queue);
   std::cout<<" pairGnssOdomInBatch down, count: "<< count << std::endl;

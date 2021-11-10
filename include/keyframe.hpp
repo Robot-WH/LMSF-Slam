@@ -16,7 +16,8 @@ namespace g2o {
 /**
  * @brief KeyFrame (pose node)
  */
-struct KeyFrame {
+struct KeyFrame 
+{
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   using PointT = pcl::PointXYZI;
@@ -52,7 +53,8 @@ public:
 /**
  * @brief KeyFramesnapshot for map cloud generation
  */
-struct KeyFrameSnapshot {
+struct KeyFrameSnapshot 
+{
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 

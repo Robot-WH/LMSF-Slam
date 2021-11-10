@@ -4,13 +4,13 @@
 #include <boost/format.hpp>
 #include <keyframe.hpp>
 #include <registration.hpp>
-#include <graph_slam.hpp>
 
 #include <g2o/types/slam3d/vertex_se3.h>
 
 
 // 一个成功回环的数据结构
-struct Loop {
+struct Loop 
+{
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   using Ptr = std::shared_ptr<Loop>;
@@ -32,7 +32,8 @@ public:
 /**
  * @brief this class finds loops by scam matching and adds them to the pose graph
  */
-class LoopDetector {
+class LoopDetector 
+{
 public:
   typedef pcl::PointXYZI PointT;
 
@@ -207,17 +208,13 @@ private:
   double candidates_distance;             // 在所有历史关键帧挑选本次闭环候选帧的阈值   会比较大一点
   int accum_distance_thresh;              // traveled distance between ...
   double distance_from_last_detect_thresh;  // a new loop edge must far from the last one at least this distance
-
   double fitness_score_max_range;         // maximum allowable distance between corresponding points
   double fitness_score_thresh;            // threshold for scan matching
-
   int last_detect_index;
 
   // pcl::Registration<PointT, PointT>::Ptr registration;
   // 匹配算法
   boost::shared_ptr<pclomp::NormalDistributionsTransform<PointT, PointT>> registration;      // 常用多线程NDT 
-};
-
-
+}; // class LoopDetector
 
 #endif // LOOP_DETECTOR_HPP

@@ -8,16 +8,16 @@
 namespace Estimator{
 
     /**
-     * @brief gnss-imu-lidar 滤波估计器接口类   
+     * @brief imu-lidar 滤波估计器接口类   
      * @details 主要的变化是  1. 采用的滤波器的种类  如eskf ， ieskf ，区别主要在观测更新上  
      *                      2. 估计的状态不同      (重载？， 继承？)                          
      *                      3. 估计的方式 - 机体坐标系为中心 、 世界坐标为中心   (子类继承)
      */
-    class LidarImuGnssFilterEstimatorInterFace
+    class LidarImuFilterEstimatorInterFace
     {  
         public: 
-            LidarImuGnssFilterEstimatorInterFace(){}
-            virtual ~LidarImuGnssFilterEstimatorInterFace(){}
+            LidarImuFilterEstimatorInterFace(){}
+            virtual ~LidarImuFilterEstimatorInterFace(){}
             
             ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
             /**
@@ -26,6 +26,15 @@ namespace Estimator{
             bool IsGnssInitialized() const
             {
                 return gnss_initialize_;  
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+            /**
+             * @brief 激光雷达是否已经初始化
+             */
+            bool IsLidarInitialized() const
+            {
+                return lidar_initialize_;  
             }
 
             ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -64,7 +73,6 @@ namespace Estimator{
             bool gnss_initialize_ = false;     
             // lidar初始化标志
             bool lidar_initialize_ = false;
-
     };  
 }
 

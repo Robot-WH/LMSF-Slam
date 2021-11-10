@@ -3,7 +3,6 @@
 // 通过全局描述子 - SC描述子 , 描述两帧之间的相似度
 // 能否保证相似度得分随着平移的增加而缓慢下降 ??  这个将决定是否可以远距离回环 !  以及重定位 !  
 
-
 void coreImportTest (void)
 {
     cout << "scancontext lib is successfully imported." << endl;

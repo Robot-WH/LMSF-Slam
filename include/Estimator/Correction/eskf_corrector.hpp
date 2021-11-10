@@ -23,8 +23,8 @@ class EskfCorrector
          * @param states 估计状态
          */
         template<typename _StateType, int _dim_state>
-        void Correct(Eigen::MatrixXd const& H, Eigen::MatrixXd const& V, 
-                        Eigen::MatrixXd const& residual, _StateType &states)
+        void Correct( Eigen::MatrixXd const& H, Eigen::MatrixXd const& V, 
+                                    Eigen::MatrixXd const& residual, _StateType &states )
         {
             // 首先根据观测计算误差状态 
             const Eigen::MatrixXd& P = states.cov_;    
@@ -60,7 +60,7 @@ class EskfCorrector
                         1, axis_angle[0] / 2, axis_angle[1] / 2, axis_angle[2] / 2);
             }
         }
-};  
+};   // class EskfCorrector
 
 } // namespace Estimator 
 

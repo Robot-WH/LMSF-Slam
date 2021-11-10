@@ -14,16 +14,9 @@ class FusionOdometryBridgeInterface
         ros::NodeHandle private_nh_;
         // 参数服务
         ParamServer param_server_;  
-        
     public:    
-
-        FusionOdometryBridgeInterface()
-        {
-        }
-        virtual ~FusionOdometryBridgeInterface()
-        {   
-        }
-
+        FusionOdometryBridgeInterface() {}
+        virtual ~FusionOdometryBridgeInterface() {}
         // 处理线程 
         virtual void Process() = 0; 
 };

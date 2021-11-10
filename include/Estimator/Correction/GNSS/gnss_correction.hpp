@@ -12,17 +12,14 @@ namespace Estimator{
     class PositionCorrection
     {
         public:
-            PositionCorrection()
-            {
-            }
-
+            PositionCorrection() {}
             ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
             /**
             * @brief ESKF校正 
             * @details
             * @param position 观测位置
             * @param states 当前估计的状态 
-            * @param timestamp 校正的时间戳 
+            * @param timestamp 校正的12时间戳 
             * @param V 残差协方差 
             */
             void Correct(Eigen::Vector3d const& position, StatesType &states, double const& timestamp, Eigen::MatrixXd const& V)

@@ -111,9 +111,9 @@ namespace Estimator{
              */
             Eigen::Matrix3d const ComputeRotationFromGravity(Eigen::Vector3d const& smooth_gravity) 
             {
-                // z-axis.   world系 即导航系z轴(重力方向) 在 载体系的表示 
+                //  z-axis.   world系 即导航系z轴(重力方向) 在 载体系的表示 
                 const Eigen::Vector3d& z_axis = smooth_gravity.normalized(); 
-                // x-axis.
+                //  x-axis.
                 Eigen::Vector3d x_axis = 
                     Eigen::Vector3d::UnitX() - z_axis * z_axis.transpose() * Eigen::Vector3d::UnitX();
                 x_axis.normalize();
@@ -138,12 +138,9 @@ namespace Estimator{
             {   
                 // 就是求平均值
                 Eigen::Vector3d sum_value;
-
-                for(auto const& gyro : gyro_buf)
-                {
+                for(auto const& gyro : gyro_buf) {
                     sum_value += gyro;
                 }
-
                 return sum_value / gyro_buf.size();   
             }        
     };

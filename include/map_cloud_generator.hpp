@@ -10,7 +10,8 @@
 /**
  * @brief this class generates a map point cloud from registered keyframes
  */
-class MapCloudGenerator {
+class MapCloudGenerator 
+{
 public:
   using PointT = pcl::PointXYZI;
 
