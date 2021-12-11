@@ -1,15 +1,17 @@
+/*
+ * @Copyright(C): Your Company
+ * @FileName: 文件名
+ * @Author: 作者
+ * @Version: 版本
+ * @Date: 2021-10-27 00:13:12
+ * @Description: 
+ * @Others: 
+ */
 
 #ifndef _STATES_HPP_
 #define _STATES_HPP_
 
-/**
- * @brief 估计器状态的库
- * @author lwh 
- * @date 
- */
-
 #include "utility.hpp"
-
 
 namespace Estimator{
 
@@ -24,9 +26,8 @@ namespace Estimator{
     static constexpr unsigned int Dim_ba = 3;
     static constexpr unsigned int Dim_bg = 3;
 
-    class CommonStates 
+    struct CommonStates 
     {
-        public:
             // 当前状态对应时间戳 
             double timestamp_;
 
@@ -47,7 +48,7 @@ namespace Estimator{
     /**
      * @brief 融合IMU的 状态量
      */ 
-    class StatesWithImu
+    struct StatesWithImu
     {
         public:
             Eigen::Vector3d acc_bias_;   // The bias of the acceleration sensor.
@@ -65,26 +66,6 @@ namespace Estimator{
                 cov_.setZero();
             }
     };
-
-
-    /**
-     * @brief 融合轮速的 状态量
-     */ 
-    class StatesWithWheels
-    {
-
-    };
-
-
-    /**
-     * @brief 融合轮速与IMU的 状态量
-     */ 
-    class StatesWithWheelImu
-    {
-    
-    };
-
-
 }
 
 #endif

@@ -1,3 +1,12 @@
+/*
+ * @Copyright(C): Your Company
+ * @FileName: 文件名
+ * @Author: 作者
+ * @Version: 版本
+ * @Date: 2021-10-27 00:13:12
+ * @Description: 
+ * @Others: 
+ */
 
 #ifndef _IMU_PREDICTOR_HPP_
 #define _IMU_PREDICTOR_HPP_
@@ -6,27 +15,17 @@
 #include "Sensor/sensor.hpp"
 #include "Estimator/states.hpp"
 #include "Model/MotionModel/Imu_MotionModel/imu_midIntegral_model.hpp"
-
+#include "predictor_interface.hpp"
 
 namespace Estimator{
     /**
      * @brief 卡尔曼滤波的IMU预测类 
      * @details 变化主要有： 1、采用不同的状态（重载）      2、不同的IMU积分方式 (重载)
+     * @param _StatesType 为预测器的状态
      */
-    class ImuPredictor
+    template<typename _StatesType>
+    class ImuPredictor : public PredictorInterface<_StatesType, ImuDataConstPtr>   // ImuDataConstPtr 为当前预测器使用的传感器数据 
     {
-        private:
-            // 上一时刻IMU数据  
-            ImuDataConstPtr last_imu_; 
-            // IMU运动模型
-            std::shared_ptr<Model::ImuMotionModelInterface> imu_motion_model_ptr_;  
-            // IMU参数
-            float acc_noise_;
-            float gyro_noise_;
-            float acc_bias_noise_; 
-            float gyro_bias_noise_; 
-
-            bool is_initialized = false; 
         public:
             /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
             ImuPredictor() {}
@@ -37,47 +36,39 @@ namespace Estimator{
                                         std::shared_ptr<Model::ImuMotionModelInterface> imu_motion_model_ptr)
                                         : acc_noise_(acc_noise), gyro_noise_(gyro_noise), 
                                         acc_bias_noise_(acc_bias_noise), gyro_bias_noise_(gyro_bias_noise),
-                                        imu_motion_model_ptr_(imu_motion_model_ptr)
-            {
+                                        imu_motion_model_ptr_(imu_motion_model_ptr) {
                 last_imu_ = std::make_shared<ImuData>();
             }
 
             /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-            ~ImuPredictor()
-            {
-            }
+            ~ImuPredictor() {}
 
             /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-            ImuDataConstPtr const& GetLastImuData() const  
-            {
+            ImuDataConstPtr const& GetLastData() const override {
                 return last_imu_; 
             }
             
             /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-            void SetLastImuData(ImuDataConstPtr const& imu_data)
-            {
-                last_imu_=imu_data;  
+            void SetLastData(ImuDataConstPtr const& data) override {
+                last_imu_=data;  
             }
 
             /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-            void ImuPredictInitialize(ImuDataConstPtr const& imu_data)
-            {   
-                SetLastImuData(imu_data);
-                imu_motion_model_ptr_->ImuMotionModelInitialize(*imu_data);  
-                is_initialized = true;  
+            void PredictInitialize(ImuDataConstPtr const& data) override {   
+                SetLastData(data);
+                imu_motion_model_ptr_->ImuMotionModelInitialize(*data);  
+                is_initialized_ = true;  
             }
             
             /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
             /**
-             * @brief 卡尔曼滤波的预测环节 
+             * @brief 使用IMU的预测环节 
              * @param states 上一时刻的状态 
              * @param curr_imu 当前时刻的IMU测量  
              */ 
-            void ImuPredict(StatesWithImu &states, ImuDataConstPtr const& curr_imu)
-            {
+            void Predict(_StatesType &states, ImuDataConstPtr const& curr_imu) {
                 // 如果没有初始化  或者上一时刻状态与上一时刻IMU时间戳不相等 则退出   
-                if(!is_initialized||states.common_states_.timestamp_ != last_imu_->timestamp) 
-                {   
+                if(!is_initialized_||states.common_states_.timestamp_ != last_imu_->timestamp) {   
                     std::cout<<"error !!!"<<std::endl;
                     return; 
                 } 
@@ -125,8 +116,57 @@ namespace Estimator{
                 // 保存为上一个imu数据 
                 last_imu_ = curr_imu; 
             }
-    };
 
-}
+        private:
+            template<typename __StatesType>
+            void calculateF(__StatesType const& states, Eigen::MatrixXd Fx, Eigen::MatrixXd Fi, Eigen::MatrixXd &Qi);
+
+        private:
+            // 上一时刻IMU数据  
+            ImuDataConstPtr last_imu_; 
+            // IMU运动模型
+            std::shared_ptr<Model::ImuMotionModelInterface> imu_motion_model_ptr_;  
+            // IMU参数
+            float acc_noise_;
+            float gyro_noise_;
+            float acc_bias_noise_; 
+            float gyro_bias_noise_; 
+            bool is_initialized_ = false; 
+    }; // class ImuPredictor
+
+    // // 模板类函数特化
+    // template<>
+    // ImuPredictor<StatesWithImu>::calculateF(StatesWithImu const& states, Eigen::MatrixXd &Fx, 
+    //                                                                                         Eigen::MatrixXd &Fi, Eigen::MatrixXd &Qi) {
+    //     // Fx
+    //     Eigen::Matrix<double, 15, 15> Fx = Eigen::Matrix<double, 15, 15>::Identity();
+    //     Fx.block<3, 3>(0, 3)   = Eigen::Matrix3d::Identity() * delta_t;
+    //     Fx.block<3, 3>(3, 6)   = - states.common_states_.Q_.toRotationMatrix() * 
+    //                                                                 GetSkewMatrix(acc_unbias) * delta_t;
+    //     Fx.block<3, 3>(3, 9)   = - states.common_states_.Q_.toRotationMatrix() * delta_t;
+        
+    //     Eigen::Vector3d delta_angle_axis = gyro_unbias * delta_t;  
+
+    //     if (delta_angle_axis.norm() > 1e-12) {
+    //         Fx.block<3, 3>(6, 6) = Eigen::AngleAxisd(delta_angle_axis.norm(), 
+    //                                                     delta_angle_axis.normalized()).toRotationMatrix().transpose();
+    //     } else {
+    //         Fx.block<3, 3>(6, 6) = Eigen::Matrix<double, 3, 3>::Identity();
+    //     }
+
+    //     Fx.block<3, 3>(6, 12)  = - Eigen::Matrix3d::Identity() * delta_t;
+    //     // Fi  IMU噪声转换矩阵   IMU噪声只是影响 速度、旋转、bias 
+    //     Eigen::Matrix<double, 15, 12> Fi = Eigen::Matrix<double, 15, 12>::Zero();
+    //     Fi.block<12, 12>(3, 0) = Eigen::Matrix<double, 12, 12>::Identity();
+    //     // IMU噪声协方差矩阵 
+    //     Eigen::Matrix<double, 12, 12> Qi = Eigen::Matrix<double, 12, 12>::Zero();
+    //     Qi.block<3, 3>(0, 0) = delta_t2 * acc_noise_ * Eigen::Matrix3d::Identity();
+    //     Qi.block<3, 3>(3, 3) = delta_t2 * gyro_noise_ * Eigen::Matrix3d::Identity();
+    //     Qi.block<3, 3>(6, 6) = delta_t * acc_bias_noise_ * Eigen::Matrix3d::Identity();
+    //     Qi.block<3, 3>(9, 9) = delta_t * gyro_bias_noise_ * Eigen::Matrix3d::Identity();
+    // }
+
+
+} // namespace 
 
 #endif  

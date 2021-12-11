@@ -1,18 +1,56 @@
-
+/*
+ * @Copyright(C): Your Company
+ * @FileName: 文件名
+ * @Author: 作者
+ * @Version: 版本
+ * @Date: 2021-10-27 00:13:12
+ * @Description: 
+ * @Others: 
+ */
 
 #ifndef _ESKF_CORRECTOR_HPP_
 #define _ESKF_CORRECTOR_HPP_
 
 #include "utility.hpp"
+#include "states_update.hpp"
+#include "corrector_interface.hpp"
 
-namespace Estimator{
+namespace Estimator {
 
 /**
  * @brief ESKF滤波器的校正主流程  
+ * @param __StatesType 状态的类型
+ * @param __StatesDim 状态的维度
+ * @param __ObsType 观测量类型  
  */
-class EskfCorrector
-{
+template<typename __StatesType, typename  __ObsType, int __StatesDim>
+class EskfCorrector : public CorrectorInterface<__StatesType, __ObsType, __StatesDim> {
     public:
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        /**
+        * @brief ESKF校正 
+        * @details
+        * @param observation 观测量 
+        * @param states 当前估计的状态 
+        * @param timestamp 校正的时间戳 
+        * @param V 观测残差协方差 
+        */
+        void Correct( __ObsType const& observation, 
+                                    __StatesType &states, 
+                                    double const& timestamp, 
+                                    Eigen::MatrixXd const& V) override {   
+            // 更新时间
+            states.common_states_.timestamp_ = timestamp;  
+            // 计算残差以及观测H矩阵  
+            Eigen::MatrixXd H;
+            Eigen::VectorXd residual;
+            residual = computeResidual(observation, states);       // 计算残差
+            computeJacobian(states, H);                                                // 计算jacobian矩阵
+            // 校正
+            correct(H, V, residual, states); 
+        }
+        
+    protected:                       
         ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         /**
          * @brief 校正过程
@@ -22,47 +60,35 @@ class EskfCorrector
          * @param residual 观测残差  
          * @param states 估计状态
          */
-        template<typename _StateType, int _dim_state>
-        void Correct( Eigen::MatrixXd const& H, Eigen::MatrixXd const& V, 
-                                    Eigen::MatrixXd const& residual, _StateType &states )
-        {
+        void correct( Eigen::MatrixXd const& H, Eigen::MatrixXd const& V, 
+                                    Eigen::MatrixXd const& residual, __StatesType &states ) {
             // 首先根据观测计算误差状态 
             const Eigen::MatrixXd& P = states.cov_;    
             const Eigen::MatrixXd K = P * H.transpose() * (H * P * H.transpose() + V).inverse();
             const Eigen::VectorXd delta_x = K * residual;
             // 用误差状态校正
-            injectErrorStateToNominalState(delta_x, states);
-            // Covarance.
-            const Eigen::MatrixXd I_KH = Eigen::Matrix<double, _dim_state, _dim_state>::Identity() - K * H;
+            updateNominalStateByErrorState(delta_x, states);
+            // 更新   Covarance.
+            const Eigen::MatrixXd I_KH = Eigen::Matrix<double, __StatesDim, __StatesDim>::Identity() - K * H;
             states.cov_ = I_KH * P * I_KH.transpose() + K * V * K.transpose();
         }
 
-    protected:                                                          
-     
         ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         /**
-         * @brief 状态校正
-         * @details 根据状态的不同进行重载  
-         * @param delta_x 误差量
-         * @param states 校正的状态 
+         * @brief 计算残差 
+         * @param observation 观测量
+         * @param  states 当前状态 
          */
-        void injectErrorStateToNominalState(Eigen::Matrix<double, 15, 1> const& delta_x, StatesWithImu &states) 
-        {
-            states.common_states_.P_     += delta_x.block<3, 1>(0, 0);
-            states.common_states_.V_     += delta_x.block<3, 1>(3, 0);
-            states.acc_bias_  += delta_x.block<3, 1>(9, 0);
-            states.gyro_bias_ += delta_x.block<3, 1>(12, 0);
-            Eigen::Vector3d axis_angle = delta_x.block<3, 1>(6, 0);
-            // 旋转更新    
-            if (axis_angle.norm() > 1e-12) 
-            {
-                states.common_states_.Q_ *= Eigen::Quaterniond(
-                        1, axis_angle[0] / 2, axis_angle[1] / 2, axis_angle[2] / 2);
-            }
-        }
+        virtual Eigen::VectorXd computeResidual( __ObsType const& observation, 
+                                                                __StatesType const& states) = 0;  
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        /**
+         * @brief 计算jacobian
+         * @param states 当前的状态
+         * @param[out] jacobian jacobian的求解结果   
+         */
+        virtual void computeJacobian(__StatesType const& states, Eigen::MatrixXd &jacobian) = 0;
 };   // class EskfCorrector
-
 } // namespace Estimator 
-
-
 #endif  

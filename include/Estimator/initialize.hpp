@@ -14,20 +14,16 @@ namespace Estimator{
             double MeanAccLimit_;  
             // IMU缓存数量阈值
             int minimum_dataSize_;  
-            
         public:
-            
-            Initializer()
-            {
+            Initializer() {
                 MeanAccLimit_ = 0.05;
                 minimum_dataSize_ = 10;  
             }
-            Initializer(double MeanAccLimit, int minimum_dataSize) 
-                : MeanAccLimit_(MeanAccLimit), minimum_dataSize_(minimum_dataSize)
-            {}
-            ~Initializer(){}
 
-        
+            Initializer(double MeanAccLimit, int minimum_dataSize) 
+                : MeanAccLimit_(MeanAccLimit), minimum_dataSize_(minimum_dataSize) {}
+
+            ~Initializer(){}
             ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
             /**
              * @brief 检查用于初始化的IMU数据数量
@@ -37,7 +33,6 @@ namespace Estimator{
                 std::cout<<" imu_datas.size(): " << imu_datas.size() <<" minimum_dataSize_: "<< minimum_dataSize_ <<std::endl;
                 return (imu_datas.size() >= minimum_dataSize_);
             }
-
 
             ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
             /**
@@ -52,38 +47,32 @@ namespace Estimator{
                 // Compute mean and std of the imu buffer.
                 Eigen::Vector3d sum_acc(0., 0., 0.);
                 // 计算加速度均值 
-                for (auto const& acc_data : acc_buf) 
-                {
+                for  (auto const& acc_data : acc_buf)  {
                     sum_acc += acc_data;
                 }
                 mean_acc = sum_acc / (double)acc_buf.size();
                 Eigen::Vector3d sum_err2(0., 0., 0.);
                 // 计算标准差
-                for (const auto acc_data : acc_buf) 
-                {
+                for  (const auto acc_data : acc_buf) {
                     sum_err2 += (acc_data - mean_acc).cwiseAbs2();
                 }
                 const Eigen::Vector3d sigma_acc = (sum_err2 / (double)acc_buf.size()).cwiseSqrt();
                 // 求模长 检查是否运动过于剧烈 
-                if (sigma_acc.norm() > MeanAccLimit_) 
-                {
+                if  (sigma_acc.norm() > MeanAccLimit_) {
                     std::cout << "[CheckImuMotionForStaticInitialization]: Too sigma_acc: " << sigma_acc.transpose() << std::endl;
                     return false;
                 }
                 // 运动合理则继续计算
                 // 计算陀螺仪均值 
                 Eigen::Vector3d sum_gyro(0., 0., 0.);
-                for (auto const& gyro_data : gyro_buf) 
-                {
+                for (auto const& gyro_data : gyro_buf) {
                     sum_gyro += gyro_data;
                 }
                 mean_gyro = sum_gyro / (double)gyro_buf.size();
                 // 计算旋转均值
-                if(!rot_buf.empty())
-                {
+                if(!rot_buf.empty()) {
                     Eigen::Quaterniond sum_rot(0,0,0,0);
-                    for (auto const& rot_data : rot_buf) 
-                    {
+                    for (auto const& rot_data : rot_buf) {
                         sum_rot.w() += rot_data.w();
                         sum_rot.x() += rot_data.x();
                         sum_rot.y() += rot_data.y();
@@ -93,9 +82,7 @@ namespace Estimator{
                     mean_rot.x() = sum_rot.x() / (double)rot_buf.size();
                     mean_rot.y() = sum_rot.y() / (double)rot_buf.size();
                     mean_rot.z() = sum_rot.z() / (double)rot_buf.size();
-                }
-                else
-                {
+                } else {
                     mean_rot = Eigen::Quaterniond::Identity();
                 }
 

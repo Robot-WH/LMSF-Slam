@@ -1,18 +1,18 @@
 /**
- * @brief Lidar-IMU-GNSS 滤波器状态估计器  
- * @details 主要用于定位，建图时不使用  
+ * @brief Lidar-IMU滤波器状态估计器  
+ * @details 
  * @author wh.l
  * @date 2021/4/20
  */
 
-#ifndef _LIDARIMUGNSS_FILTER_ESTIMATOR_WORLDCENTRE_HPP_
-#define _LIDARIMUGNSS_FILTER_ESTIMATOR_WORLDCENTRE_HPP_
+#ifndef _LIO_FILTER_ESTIMATOR_WORLDCENTRE_HPP_
+#define _LIO_FILTER_ESTIMATOR_WORLDCENTRE_HPP_
 
 #include "utility.hpp"
 #include "Estimator/LIO_filter_estimator_interface.hpp"
 #include "Estimator/Predictor/imu_predictor.hpp"
-#include "Estimator/Correction/GNSS/gnss_correction.hpp"
-#include "Estimator/Correction/GNSS/gnss_correction_with_prior_constraint.hpp"
+#include "Estimator/Correction/GNSS/position_correction.hpp"
+#include "Estimator/Correction/GNSS/position_correction_with_prior_constraint.hpp"
 #include "initialize.hpp"
 #include "Sensor/Gnss_data.h"
 
@@ -41,7 +41,7 @@ namespace Estimator{
         ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         Sensor::ImuDataConstPtr const& GetLastImuData() const override
         {
-          return imu_predict_.GetLastImuData();  
+          return imu_predict_.GetLastData();  
         }
         
         ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -89,7 +89,7 @@ namespace Estimator{
         // 估计的状态
         EstimatedStates estimated_states_;  
         // IMU处理
-        ImuPredictor imu_predict_;  
+        ImuPredictor<StatesWithImu> imu_predict_;  
         // Lidar抽象接口 
         
         // GNSS抽象接口  
@@ -120,29 +120,26 @@ namespace Estimator{
                                                                                                                                                                     Eigen::Vector3d tig) : Rlb_(Rlb), tlb_(tlb), Ril_(Ril), til_(til), Rig_(Rig), tig_(tig)
   {   
       // imu预测器初始化  
-      imu_predict_ = ImuPredictor(imu_acc_noise, imu_gyro_noise, imu_acc_bias_noise, 
+      imu_predict_ = ImuPredictor<StatesWithImu>(imu_acc_noise, imu_gyro_noise, imu_acc_bias_noise, 
                                                                   imu_gyro_bias_noise, imu_motion_model_ptr);  
   }
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   template<typename EstimatedStates, int _dim_states >
-  bool LidarImuFilterEstimatorWorldCentre<EstimatedStates, _dim_states>::estimatorInitialize(double const& timestamp)
+  bool LidarImuFilterEstimatorWorldCentre<EstimatedStates, _dim_states>::estimatorInitialize(double const& timestamp) 
   {  
     // 判断IMU数据是否足够
-    if(!initializer_.CheckInitializedImuDateNumber(prepared_imus_))  
-    {
+    if(!initializer_.CheckInitializedImuDateNumber(prepared_imus_)) {
       std::cout<<"imu data is not enough!!!"<<std::endl;
       return false;  
     }
-    
     // IMU数据中是否有旋转信息 
     bool rotation_active = true;  
     // 如果没有旋转信息   采用加速度进行初始化  
     if((*prepared_imus_.begin())->rot.w()==0&&
         (*prepared_imus_.begin())->rot.x()==0&&
         (*prepared_imus_.begin())->rot.y()==0&&
-        (*prepared_imus_.begin())->rot.z()==0)
-    {
+        (*prepared_imus_.begin())->rot.z()==0) {
       rotation_active = false;    
       std::cout<<"FilterEstimatorCentreRobot::Initialize ----- no rotation message !" << std::endl;
     }
@@ -153,8 +150,7 @@ namespace Estimator{
     // 陀螺仪buf
     std::vector<Eigen::Vector3d> gyro_buf; 
     // 提取数据 
-    for(auto const& imu : prepared_imus_)
-    {
+    for(auto const& imu : prepared_imus_) {
       acc_buf.push_back(std::move(imu->acc)); 
       gyro_buf.push_back(std::move(imu->gyro)); 
       if(!rotation_active)   
@@ -166,25 +162,21 @@ namespace Estimator{
     initialized_imu->timestamp = timestamp;
     // 检查加速度是否满足静止初始化条件并求取平均IMU数据
     if(!initializer_.InitializeFristImuData(acc_buf, gyro_buf, rot_buf, initialized_imu->acc, 
-                                              initialized_imu->gyro, initialized_imu->rot))
-    {
+                                              initialized_imu->gyro, initialized_imu->rot)) {
       std::cout<<"motion excessive !! "<< std::endl;  
       return false; 
     }
-    
     /***************************************************** 状态初始化 *****************************************************************/ 
     estimated_states_.Reset();
     estimated_states_.common_states_.timestamp_ = timestamp; 
     // 检查IMU是否可以获取旋转数据  
     Eigen::Matrix3d R_w_b;  
-    if(!rotation_active)   // 靠重力初始化  
-    {
+    if(!rotation_active) { // 靠重力初始化
       R_w_b = initializer_.ComputeRotationFromGravity(initialized_imu->acc);
       estimated_states_.common_states_.Q_ = Eigen::Quaterniond(R_w_b).normalized();   
       std::cout<<"imu rotation initialize ! R: "<< std::endl << R_w_b << std::endl;
     }
-    else                   // 直接用旋转初始化 
-    {         
+    else {                   // 直接用旋转初始化 
     }
     // 陀螺仪偏执初始化 
     Eigen::Vector3d const& gyro_bias = initializer_.StaticInitializeGyroBias(gyro_buf); 
@@ -192,15 +184,13 @@ namespace Estimator{
     // 估计器状态协方差矩阵初始化 
     estimatorStatesCovarianceInitialize(estimated_states_);
     // 预测器初始化
-    imu_predict_.ImuPredictInitialize(initialized_imu);  
-
+    imu_predict_.PredictInitialize(initialized_imu);  
     return true;   
   }  
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   template<typename EstimatedStates, int _dim_states >
-  void LidarImuFilterEstimatorWorldCentre<EstimatedStates, _dim_states>::estimatorStatesCovarianceInitialize(StatesWithImu &states)
-  {
+  void LidarImuFilterEstimatorWorldCentre<EstimatedStates, _dim_states>::estimatorStatesCovarianceInitialize(StatesWithImu &states) {
     states.cov_.setZero();
     // 状态初始协方差设置   
     states.cov_.block<3, 3>(0, 0) = 0.01 * Eigen::Matrix3d::Identity(); // position std: 0.1 m
@@ -216,16 +206,12 @@ namespace Estimator{
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   template<typename EstimatedStates, int _dim_states >
-  void LidarImuFilterEstimatorWorldCentre<EstimatedStates, _dim_states>::ProcessSensorData(Sensor::ImuDataConstPtr &imuData) 
-  { 
+  void LidarImuFilterEstimatorWorldCentre<EstimatedStates, _dim_states>::ProcessSensorData(Sensor::ImuDataConstPtr &imuData) { 
     // 只要gnss与lidar有一个初始化了  那么就进行滤波器的预测环节
-    if(gnss_initialize_||lidar_initialize_)
-    {
+    if(gnss_initialize_||lidar_initialize_) {
       std::cout<<"Imu predict !" <<std::endl;
-      imu_predict_.ImuPredict(estimated_states_, imuData);
-    }
-    else
-    { 
+      imu_predict_.Predict(estimated_states_, imuData);
+    } else { 
       prepared_imus_.push_back(std::move(imuData));       // 缓存数据用于初始化  
     }
   } 
@@ -235,32 +221,24 @@ namespace Estimator{
   void LidarImuFilterEstimatorWorldCentre<EstimatedStates, _dim_states>::ProcessSensorData(Sensor::GnssDataConstPtr const& gnssData) 
   {
     // 如果gnss没有初始化 
-    if(!gnss_initialize_)
-    {  
+    if(!gnss_initialize_) {  
       // 如果LIO没有初始化   那么先初始化INS 运行 gps与imu的组合导航 
-      if(!lidar_initialize_)
-      {    
+      if(!lidar_initialize_) {    
         // 初始化GNSS 
         // 估计器初始化 
-        if(estimatorInitialize(gnssData->timestamp))
-        { 
+        if(estimatorInitialize(gnssData->timestamp)) { 
           std::cout<<"estimator Initialize success!" <<std::endl;
           gnss_initialize_ = true;  
           // GNSS初始化 
           Sensor::GnssDataProcess* gnss_data_process = Sensor::GnssDataProcess::GetInstance(); 
           gnss_data_process->InitOriginPosition(gnssData->lla);  
         }  
+      } else  { // lidar初始化后的GNSS初始化    
       }
-      else  // lidar初始化后的GNSS初始化   
-      {   
-      }
-    }
-    else   // 如果初始化了 执行滤波器校正  
-    {
+    } else {  // 如果初始化了 执行滤波器校正  
       // 首先将GNSS数据转换到ENU系下
       GnssDataProcess* gnss_processor_ptr = GnssDataProcess::GetInstance();  
-      if(gnss_processor_ptr->UpdateXYZ(gnssData->lla))
-      {
+      if(gnss_processor_ptr->UpdateXYZ(gnssData->lla)) {
         Eigen::Vector3d position_obs = tig_ + (gnss_processor_ptr->GetEnuPosition()  
                                                     - estimated_states_.common_states_.Q_*tig_);
         gnss_correction_.Correct(position_obs, estimated_states_, gnssData->timestamp, gnssData->cov);  

@@ -1,6 +1,15 @@
+/*
+ * @Copyright(C): Your Company
+ * @FileName: 文件名
+ * @Author: 作者
+ * @Version: 版本
+ * @Date: 2021-10-27 00:13:12
+ * @Description: 
+ * @Others: 
+ */
 
-#ifndef _FUSIONODOMETRY_BRIDGE_FACTOR_BRIDGE_HPP_
-#define _FUSIONODOMETRY_BRIDGE_FACTOR_BRIDGE_HPP_
+#ifndef _FUSIONODOMETRY_BRIDGE_FACTORY_HPP_
+#define _FUSIONODOMETRY_BRIDGE_FACTORY_HPP_
 
 #include "utility.hpp"
 #include "ros_utils.hpp"
@@ -34,7 +43,7 @@ class FusionOdometryBridgeFactory
 /**
  * @brief lidar-imu-gnss 对接器 工厂
  */
-class LidarImuGnssFusionOdometryBridgeFactory : public FusionOdometryBridgeFactory
+class LidarImuFusionOdometryBridgeFactory : public FusionOdometryBridgeFactory
 {
     public:
         std::unique_ptr<FusionOdometryBridgeInterface> CreateFusionOdometryBridgeObject()

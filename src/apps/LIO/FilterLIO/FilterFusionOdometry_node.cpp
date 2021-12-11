@@ -1,3 +1,4 @@
+
 /*********************************************************************************************
  * @brief 基于滤波器的多传感器融合激光里程计
  * @details 3D激光雷达为主  融合IMU, wheels
@@ -45,12 +46,12 @@ int main(int argc, char **argv)
     ROS_INFO("Started FilterFusionLidarOdometryBridge node");  
     // 构建工厂对象  
     std::unique_ptr<FusionOdometryBridgeFactory> fusion_odometry_bridge_factory;  
-    fusion_odometry_bridge_factory.reset(new LidarImuGnssFusionOdometryBridgeFactory{});     // 变化 ！！！！！！！！！！！！！！      
+    fusion_odometry_bridge_factory.reset(new LidarImuFusionOdometryBridgeFactory{});     // 变化 ！！！！！！！！！！！！！！      
     
     std::unique_ptr<FusionOdometryBridgeInterface> fusion_odometry_bridge = std::move(
         fusion_odometry_bridge_factory->CreateFusionOdometryBridgeObject() );  
     // 融合线程  
-    std::thread measurement_process{&FusionOdometryBridgeInterface::Process, &(*fusion_odometry_bridge)};
+    std::thread measurement_process{&FusionOdometryBridgeInterface::Process, fusion_odometry_bridge.get()};
     ros::spin();
 
     return 0;
