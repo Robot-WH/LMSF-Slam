@@ -3,7 +3,6 @@ project(liv_slam)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_LIST_DIR}/cmake")
 set(CMAKE_BUILD_TYPE "Release" )
-# set(CMAKE_CXX_FLAGS "-std=c++14")
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_FLAGS_RELEASE "-Wall -g")
 
@@ -90,16 +89,16 @@ link_directories(
   ${GTSAM_LIBRARY_DIRS}
 )
 
-
+include(cmake/Macros.cmake)
 include(cmake/geographic.cmake)
 
-file(GLOB_RECURSE ALL_SRCS "*.cpp")     # 所有的.cpp文件  放置到 ALL_SRCS 
-file(GLOB_RECURSE NODE_SRCS "src/apps/*_node.cpp")     # 所有的node cpp 文件
-file(GLOB_RECURSE other_SRCS "src/apps/feature_based_FrontEnd/*.cpp")     # 所有的node cpp 文件
-file(GLOB_RECURSE THIRD_PARTY_SRCS "third_part/*.cpp") # 所有第三方库 cpp文件
-list(REMOVE_ITEM ALL_SRCS ${NODE_SRCS})                          # ALL_SRCS 中剔除node cpp文件
-list(REMOVE_ITEM ALL_SRCS ${THIRD_PARTY_SRCS})         # ALL_SRCS 中剔除库cpp文件 
-list(REMOVE_ITEM ALL_SRCS ${other_SRCS}) 
+# file(GLOB_RECURSE ALL_SRCS "*.cpp")     # 所有的.cpp文件  放置到 ALL_SRCS 
+# file(GLOB_RECURSE NODE_SRCS "src/apps/*_node.cpp")     # 所有的node cpp 文件
+# file(GLOB_RECURSE other_SRCS "src/apps/feature_based_FrontEnd/*.cpp")     # 所有的node cpp 文件
+# file(GLOB_RECURSE THIRD_PARTY_SRCS "third_part/*.cpp") # 所有第三方库 cpp文件
+# list(REMOVE_ITEM ALL_SRCS ${NODE_SRCS})                          # ALL_SRCS 中剔除node cpp文件
+# list(REMOVE_ITEM ALL_SRCS ${THIRD_PARTY_SRCS})         # ALL_SRCS 中剔除库cpp文件 
+# list(REMOVE_ITEM ALL_SRCS ${other_SRCS}) 
 
 
 ###########
@@ -110,48 +109,48 @@ list(REMOVE_ITEM ALL_SRCS ${other_SRCS})
 # message(WARNING ${Boost_LIBRARY_DIRS})
 # message(WARNING ${Boost_LIBRARIES})
 
-add_executable( FilterFusionOdometry
-   src/apps/LIO/FilterLIO/FilterFusionOdometry_node.cpp
-   src/lib/ros_bridge/FilterFusionLIO_bridge.cpp
-)
-add_dependencies(FilterFusionOdometry ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(FilterFusionOdometry
-  ${catkin_LIBRARIES}
-  ${PCL_LIBRARIES}
-  MultisensorFusionLib
-)
+# add_executable( FilterFusionOdometry
+#    src/apps/LIO/FilterLIO/FilterFusionOdometry_node.cpp
+#    src/lib/ros_bridge/FilterFusionLIO_bridge.cpp
+# )
+# add_dependencies(FilterFusionOdometry ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+# target_link_libraries(FilterFusionOdometry
+#   ${catkin_LIBRARIES}
+#   ${PCL_LIBRARIES}
+#   MultisensorFusionLib
+# )
 
-add_executable( 2d_GridMapping
-  src/apps/2D_mapping_node.cpp
-  src/lib/2d_grid_mapping.cpp
-)
-target_link_libraries(2d_GridMapping ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBS} ${EIGEN3_LIBS})
+# add_executable( 2d_GridMapping
+#   src/apps/2D_mapping_node.cpp
+#   src/lib/2d_grid_mapping.cpp
+# )
+# target_link_libraries(2d_GridMapping ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBS} ${EIGEN3_LIBS})
 
 
-add_executable(BackEnd_node
-  src/apps/Backend/BackEnd_node.cpp
-  src/lib/keyframe.cpp
-  src/lib/information_matrix_calculator.cpp
-  src/lib/robust_kernel_io.cpp
-  src/lib/map_cloud_generator.cpp
-  ${ALL_SRCS}
-)
+# add_executable(BackEnd_node
+#   src/apps/Backend/BackEnd_node.cpp
+#   src/lib/keyframe.cpp
+#   src/lib/information_matrix_calculator.cpp
+#   src/lib/robust_kernel_io.cpp
+#   src/lib/map_cloud_generator.cpp
+#   ${ALL_SRCS}
+# )
 
-add_dependencies(BackEnd_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(BackEnd_node
-  ${catkin_LIBRARIES}
-  ${PCL_LIBRARIES}
-  ${G2O_TYPES_DATA}
-  ${G2O_CORE_LIBRARY}
-  ${G2O_STUFF_LIBRARY}
-  ${G2O_SOLVER_PCG}
-  ${G2O_SOLVER_CSPARSE}
-  ${G2O_SOLVER_CHOLMOD}
-  ${G2O_TYPES_SLAM3D}
-  ${G2O_TYPES_SLAM3D_ADDONS}
-  MultisensorFusionLib
-  glog
-)
+# add_dependencies(BackEnd_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+# target_link_libraries(BackEnd_node
+#   ${catkin_LIBRARIES}
+#   ${PCL_LIBRARIES}
+#   ${G2O_TYPES_DATA}
+#   ${G2O_CORE_LIBRARY}
+#   ${G2O_STUFF_LIBRARY}
+#   ${G2O_SOLVER_PCG}
+#   ${G2O_SOLVER_CSPARSE}
+#   ${G2O_SOLVER_CHOLMOD}
+#   ${G2O_TYPES_SLAM3D}
+#   ${G2O_TYPES_SLAM3D_ADDONS}
+#   MultisensorFusionLib
+#   glog
+# )
 
 add_subdirectory(src)
 

@@ -93,8 +93,6 @@ lio_sam:
   globalMapVisualizationLeafSize: 1.0           # meters, global map visualization cloud density
 
 
-
-
 # Navsat (convert GPS coordinates to Cartesian)
 navsat:
   frequency: 50

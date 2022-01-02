@@ -35,10 +35,14 @@ liv_slam:
   lidarMaxRange: 1000.0                       # default: 1000.0, maximum lidar range to be used
 
   # IMU Settings
-  imuAccNoise: 1e-2                                # 3.9939570888238808e-03
-  imuGyroNoise: 1e-4                                  #1.5636343949698187e-03
-  imuAccBiasN: 1e-6                                      # 6.4356659353532566e-05
-  imuGyroBiasN: 1e-8                                  #3.5640318696367613e-05
+  # imuAccNoise: 1.0e-02                                # 3.9939570888238808e-03
+  # imuGyroNoise: 1.0e-04                                  #1.5636343949698187e-03
+  # imuAccBiasN: 1.0e-06                                      # 6.4356659353532566e-05
+  # imuGyroBiasN: 1.0e-08                                  #3.5640318696367613e-05
+  imuAccNoise: 1.0e-02                                 # 3.9939570888238808e-03
+  imuGyroNoise: 1.0e-04                                   #1.5636343949698187e-03
+  imuAccBiasN: 1.0e-06                                      # 6.4356659353532566e-05
+  imuGyroBiasN: 1.0e-08                                  #3.5640318696367613e-05
   imuGravity: 9.80511
   imuRPYWeight: 0.01
 
