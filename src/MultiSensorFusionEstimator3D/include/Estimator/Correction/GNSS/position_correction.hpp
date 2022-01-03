@@ -13,6 +13,7 @@
 
 #include "utility.hpp"
 #include "Estimator/Correction/eskf_corrector.hpp"
+#include "Estimator/Math/jacobian_state_with_error.hpp"
 
 namespace Estimator{
     
@@ -21,9 +22,10 @@ namespace Estimator{
      * @details: 一般用于如GNSS, UWB等 观测   
      * @param _StateType 使用状态
      * @param _StateDim 估计的状态维度  比如是否优化重力在这个维度上会有区别  
+     * @param _ErrorStateDim 对应误差状态的维度  
      */    
-    template<typename _StateType, int _StateDim>
-    class PositionCorrection : public  EskfCorrector<_StateType, Eigen::Vector3d, _StateDim> {
+    template<typename _StateType, int _StateDim, int _ErrorStateDim>
+    class PositionCorrection : public  EskfCorrector<_StateType, Eigen::Vector3d, _ErrorStateDim> {
         public:
             PositionCorrection() {}
             virtual ~PositionCorrection() {}  
@@ -38,7 +40,6 @@ namespace Estimator{
                 Eigen::Vector3d residual;                                                  // 观测残差  
                 // 残差 = 测量值 - 估计值
                 residual = position - P;
-                std::cout<<"observe residual: "<<residual.transpose()<<std::endl;
                 return residual; 
             }
 
@@ -47,9 +48,10 @@ namespace Estimator{
              * @brief 计算jacobian
              */
             virtual void computeJacobian(_StateType const& states, Eigen::MatrixXd &jacobian) override {   
-                jacobian = Eigen::Matrix<double, 3, _StateDim>::Zero(); 
+                Eigen::MatrixXd jacobian_G_with_X = Eigen::Matrix<double, 3, _StateDim>::Zero();  
                 // Compute jacobian.
-                jacobian.block<3, 3>(0, 0)  = Eigen::Matrix3d::Identity();
+                jacobian_G_with_X.block<3, 3>(0, 0) = Eigen::Matrix3d::Identity();
+                jacobian = jacobian_G_with_X * ComputerJacobianStateWithErrorState<_StateType, _StateDim>(states);  
             }
     }; // class PositionCorrection
 } // namespace Estimator 

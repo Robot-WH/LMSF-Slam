@@ -20,11 +20,11 @@ namespace Estimator {
 /**
  * @brief ESKF滤波器的校正主流程  
  * @param __StatesType 状态的类型
- * @param _StateDim 状态的维度
+ * @param _ErrorStateDim 状态的维度
  * @param __ObsType 观测量类型，认为是一个观测向量
  */
-template<typename _StateType, typename  _ObsType, int _StateDim>
-class EskfCorrector : public CorrectorInterface<_StateType, _ObsType, _StateDim> {
+template<typename _StateType, typename  _ObsType, int _ErrorStateDim>
+class EskfCorrector : public CorrectorInterface<_StateType, _ObsType, _ErrorStateDim> {
     public:
         ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         /**
@@ -40,7 +40,7 @@ class EskfCorrector : public CorrectorInterface<_StateType, _ObsType, _StateDim>
                                     double const& timestamp, 
                                     Eigen::MatrixXd const& V,
                                     _StateType &states, 
-                                    Eigen::Matrix<double, _StateDim, _StateDim> &cov) override {   
+                                    Eigen::Matrix<double, _ErrorStateDim, _ErrorStateDim> &cov) override {   
             // 更新时间
             states.common_states_.timestamp_ = timestamp;  
             // 计算残差以及观测H矩阵  
@@ -65,16 +65,15 @@ class EskfCorrector : public CorrectorInterface<_StateType, _ObsType, _StateDim>
          */
         void correct( Eigen::MatrixXd const& H, Eigen::MatrixXd const& V, 
                                     Eigen::MatrixXd const& residual, _StateType &states, 
-                                    Eigen::Matrix<double, _StateDim, _StateDim> &cov ) {
+                                    Eigen::Matrix<double, _ErrorStateDim, _ErrorStateDim> &cov ) {
             // 首先根据观测计算误差状态 
             const Eigen::MatrixXd& P = cov;    
             const Eigen::MatrixXd K = P * H.transpose() * (H * P * H.transpose() + V).inverse();
-            const Eigen::Matrix<double, _StateDim, 1> delta_x = K * residual;
-            std::cout<<"delta_x: "<<delta_x.transpose()<<std::endl;
+            const Eigen::Matrix<double, _ErrorStateDim, 1> delta_x = K * residual;
             // 用误差状态校正
             updateNominalStateByErrorState(delta_x, states);
             // 更新   Covarance.
-            const Eigen::MatrixXd I_KH = Eigen::Matrix<double, _StateDim, _StateDim>::Identity() - K * H;
+            const Eigen::MatrixXd I_KH = Eigen::Matrix<double, _ErrorStateDim, _ErrorStateDim>::Identity() - K * H;
             cov = I_KH * P * I_KH.transpose() + K * V * K.transpose();
         }
 

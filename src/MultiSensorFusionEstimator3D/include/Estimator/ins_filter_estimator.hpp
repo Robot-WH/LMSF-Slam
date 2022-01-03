@@ -27,27 +27,27 @@ namespace Estimator{
     using Sensor::GnssDataConstPtr;  
     using Sensor::SensorProcessInterface;  
 
-    template<typename _StateType, int _StateDim>
-    using XYZCorrectorPtr = std::unique_ptr<CorrectorInterface<_StateType, Eigen::Vector3d, _StateDim>>;
+    template<typename _StateType, int _ErrorStateDim>
+    using XYZCorrectorPtr = std::unique_ptr<CorrectorInterface<_StateType, Eigen::Vector3d, _ErrorStateDim>>;
 
     /**
      * @brief: INS 组合导航估计器 
      * @details:  融合IMU与GNSS，有IMU时融合IMU，没有IMU数据时，采用 运动学模型  
      * @param _StateType 不优化内参/优化内参 
-     * @param _StateDim 状态维度，还得考虑是否优化重力  
+     * @param _ErrorStateDim 误差状态维度，还得考虑是否优化重力  
      */    
-    template<typename _StateType, int _StateDim>
+    template<typename _StateType, int _ErrorStateDim>
     class InsEstimator  
-    : public FilterEstimatorBase<_StateType, _StateDim, ImuDataConstPtr, GnssDataConstPtr> {
+    : public FilterEstimatorBase<_StateType, _ErrorStateDim, ImuDataConstPtr, GnssDataConstPtr> {
             using BaseType = 
-                FilterEstimatorBase<_StateType, _StateDim, ImuDataConstPtr, GnssDataConstPtr>;
+                FilterEstimatorBase<_StateType, _ErrorStateDim, ImuDataConstPtr, GnssDataConstPtr>;
             public:
                 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
                 InsEstimator(float const& acc_noise, 
                                           float const& gyro_noise, 
                                           float const& acc_bias_noise, 
                                           float const& gyro_bias_noise,
-                                          XYZCorrectorPtr<_StateType, _StateDim> corrector_ptr,
+                                          XYZCorrectorPtr<_StateType, _ErrorStateDim> corrector_ptr,
                                           std::unique_ptr<Model::ImuMotionModelInterface> imu_motion_model_ptr
                                             = std::make_unique<Model::ImuMidIntegralModel>()  // 默认中值积分
                                           ) : imu_predictor_(acc_noise, gyro_noise, acc_bias_noise, gyro_bias_noise, 
@@ -193,7 +193,7 @@ namespace Estimator{
                 
             private:
                 ImuPredictor imu_predictor_;   // Imu 预测器  
-                std::unique_ptr<CorrectorInterface<_StateType, Eigen::Vector3d, _StateDim>> corrector_ptr_;  // 位置校正器
+                std::unique_ptr<CorrectorInterface<_StateType, Eigen::Vector3d, _ErrorStateDim>> corrector_ptr_;  // 位置校正器
                 ImuInitializedTool imu_initialized_tool_;    // IMU 初始化工具  
                 std::vector<Sensor::ImuDataConstPtr> prepared_imus_;   // 用于初始化的imu数据 
     }; // namespace InsEstimator

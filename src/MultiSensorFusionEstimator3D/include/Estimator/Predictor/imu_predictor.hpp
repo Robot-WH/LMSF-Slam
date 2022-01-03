@@ -97,7 +97,8 @@ namespace Estimator{
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     /**
      * @brief: 特化  计算不考虑重力优化下的IMU预测协方差矩阵传播   
-     * @param {*}
+     * @details StatesWithImu 考虑IMU的状态,15 状态的维度 ，不优化重力
+     * @param 
      * @return {*}
      */    
     template<>
@@ -167,7 +168,6 @@ namespace Estimator{
         // 保存为上一个imu数据 
         last_imu_ = curr_data; 
     }
-
 } // namespace Estimator 
 
 #endif  

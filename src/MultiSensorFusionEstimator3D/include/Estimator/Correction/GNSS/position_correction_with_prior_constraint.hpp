@@ -36,7 +36,7 @@ namespace Estimator{
                 Eigen::Matrix<double, 5, 1> residual;
                 // 残差 = 测量值 - 估计值
                 residual.head(3) = position - P;
-                // 计算速度观测的残差
+                // 计算速度观测的残差   对于车来说，车体坐标系下  Y轴与Z轴的速度为0  
                 Eigen::Matrix3d R_b_w = states.common_states_.Q_.toRotationMatrix().transpose();
                 Eigen::Matrix<double, 2, 3> K;
                 K.row(0) = R_b_w.row(0);

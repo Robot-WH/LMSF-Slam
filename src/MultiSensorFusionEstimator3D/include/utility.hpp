@@ -44,13 +44,9 @@
 #include "tool/file_manager.hpp"
 
 using namespace std;
-
 typedef pcl::PointXYZI PointType;
-
 enum class SensorType { VELODYNE, OUSTER };
-
 const std::string WORK_SPACE_PATH = "/home/gogo/lwh/lwh_ws/src/liv_slam-master"; 
-
 constexpr double CoefDegreeToRadian = M_PI / 180.;
 constexpr double CoefRadianToDegree = 180. / M_PI;
 
@@ -59,8 +55,7 @@ constexpr double CoefRadianToDegree = 180. / M_PI;
  * 
  */
 static bool SaveTrajectory(Eigen::Matrix4d const& gt_odom, Eigen::Matrix4d const& est_odom, string const& directory_path,
-                           string const& file_1, string const& file_2) 
-{
+                           string const& file_1, string const& file_2) {
     static std::ofstream ground_truth, est_path;
     static bool is_file_created = false;
     if (!is_file_created) {
@@ -95,8 +90,7 @@ static bool SaveTrajectory(Eigen::Matrix4d const& gt_odom, Eigen::Matrix4d const
  * 
  */
 static bool SaveDataCsv(string const& Directory_path, string const& file_path, 
-                        vector<double> const& datas, vector<string> const& labels) 
-{
+                        vector<double> const& datas, vector<string> const& labels) {
     static std::ofstream out;
     static bool is_file_created = false;
 
@@ -107,15 +101,13 @@ static bool SaveDataCsv(string const& Directory_path, string const& file_path,
             return false;
         is_file_created = true;
         // 写标签
-        for(auto const& label:labels)
-        {
+        for(auto const& label:labels) {
            out << label << ',';  
         }
         out << endl;
     }
 
-    for(auto const& data:datas)
-    {
+    for(auto const& data:datas) {
        out << data << ',';
     }
 
@@ -124,14 +116,12 @@ static bool SaveDataCsv(string const& Directory_path, string const& file_path,
 }
 
 
-static float pointDistance(PointType p)
-{
+static float pointDistance(PointType p) {
     return sqrt(p.x*p.x + p.y*p.y + p.z*p.z);
 }
 
 
-static float pointDistance(PointType p1, PointType p2)
-{
+static float pointDistance(PointType p1, PointType p2) {
     return sqrt((p1.x-p2.x)*(p1.x-p2.x) + (p1.y-p2.y)*(p1.y-p2.y) + (p1.z-p2.z)*(p1.z-p2.z));
 }
 
@@ -143,6 +133,29 @@ static Eigen::Matrix3d GetSkewMatrix(const Eigen::Vector3d& v) {
          -v(1),  v(0),  0.;
 
     return w;
+}
+
+/**
+ * @brief:  四元数 左乘矩阵
+ * @param {Quaterniond const&} q
+ * @return {*}
+ */
+static Eigen::Matrix4d QuanternionLeftProductMatrix(Eigen::Quaterniond const& q) {
+    Eigen::Matrix4d m;
+    m << q.w(), -q.x(), -q.y(), -q.z(),
+                q.x(), q.w(), -q.z(), q.y(),
+                q.y(), q.z(), q.w(), -q.x(),
+                q.z(), -q.y(), q.x(), q.w();  
+    return m;  
+}
+
+static Eigen::Matrix4d QuanternionRightProductMatrix(Eigen::Quaterniond const& q) {
+    Eigen::Matrix4d m;
+    m << q.w(), -q.x(), -q.y(), -q.z(),
+                q.x(), q.w(), q.z(), -q.y(),
+                q.y(), -q.z(), q.w(), q.x(),
+                q.z(), q.y(), -q.x(), q.w();  
+    return m;  
 }
 
 #endif

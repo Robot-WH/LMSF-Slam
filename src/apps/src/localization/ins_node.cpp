@@ -39,7 +39,7 @@ void allocateMemory() {
     ins_estimator.reset( new Estimator::InsEstimator<Estimator::StatesWithImu, 15>(
                                                 imuAccNoise, imuGyroNoise, imuAccBiasN, imuGyroBiasN, 
                                                 Estimator::XYZCorrectorPtr<Estimator::StatesWithImu, 15>(
-                                                    new Estimator::PositionCorrection<Estimator::StatesWithImu, 15>()
+                                                    new Estimator::PositionCorrection<Estimator::StatesWithImu, 16, 15>()
                                                 )));  
 }
 

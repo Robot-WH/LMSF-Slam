@@ -12,7 +12,6 @@
     
     <node name="ins_node" pkg="liv_slam" type="ins_node" output="screen">
         
-        
         <param name="ImuTopic" value="/imu/data" />      
         <param name="GnssTopic" value="/fix" />
         

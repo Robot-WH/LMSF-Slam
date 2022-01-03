@@ -16,8 +16,8 @@ namespace Estimator {
 /**
  * @brief:  广义滤波器校正抽象类 
  * @details:  主要针对 如eskf, ieskf
- * @param __StatesType 估计的状态类型  
- * @param __ObsType 观测量类型 
+ * @param _StatesType 估计的状态类型  
+ * @param _ObsType 观测量类型 
  */
 template<typename _StateType, typename  _ObsType, int _StateDim>
 class CorrectorInterface {

@@ -15,8 +15,7 @@
 #include "Sensor/sensor.hpp"
 #include "imu_motion_model_interface.hpp"
 
-namespace Model
-{
+namespace Model {
     /**
      * @brief IMU运动模型的派生子类  实现中值积分
      */
