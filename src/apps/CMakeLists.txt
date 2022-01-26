@@ -102,3 +102,6 @@ target_link_libraries(alaserMapping_node ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${
 
 add_executable(ins_node src/localization/ins_node.cpp)
 target_link_libraries(ins_node ${catkin_LIBRARIES} ${ALL_TARGET_LIBRARIES})
+
+add_executable(filter_lio_node src/LIO/FilterLIO/simple_lio_node.cpp)
+target_link_libraries(filter_lio_node ${catkin_LIBRARIES} ${ALL_TARGET_LIBRARIES})

@@ -15,6 +15,8 @@
 
 namespace Sensor{
 
+    using PointType = pcl::PointXYZI;
+
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     enum sensor_id {
         lidar = 0,
@@ -67,7 +69,7 @@ namespace Sensor{
     {
        double timestamp;      // In second.
        // 点云
-       pcl::PointCloud<PointType> point_clouds; 
+       pcl::PointCloud<PointType> point_clouds_; 
     };
 
     using LidarDataPtr = std::shared_ptr<LidarData>;

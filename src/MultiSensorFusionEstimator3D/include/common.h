@@ -1,3 +1,4 @@
+
 // This is an advanced implementation of the algorithm described in the following paper:
 //   J. Zhang and S. Singh. LOAM: Lidar Odometry and Mapping in Real-time.
 //     Robotics: Science and Systems Conference (RSS). Berkeley, CA, July 2014. 
@@ -39,8 +40,6 @@
 #include <cmath>
 
 #include <pcl/point_types.h>
-
-typedef pcl::PointXYZI PointType;
 
 inline double rad2deg(double radians)
 {

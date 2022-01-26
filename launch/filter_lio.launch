@@ -10,11 +10,11 @@
     
     <node name="nmea_topic_driver" pkg="nmea_navsat_driver" type="nmea_topic_driver" output="screen" />
     
-    <node name="ins_node" pkg="liv_slam" type="ins_node" output="screen">
+    <node name="filter_lio_node" pkg="liv_slam" type="filter_lio_node" output="screen">
         
         <param name="ImuTopic" value="/imu/data" />      
         <param name="GnssTopic" value="/fix" />
-        
+        <param name="LidarTopic" value="/velodyne_points" />
         <!--
         <param name="ImuTopic" value="/imu_correct" />      
         <param name="GnssTopic" value="/gps/fix" />

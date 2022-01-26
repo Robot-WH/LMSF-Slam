@@ -26,7 +26,6 @@
         
         <param name="pointcloud_topic" value="/processed_points" />
         <param name="keyframe_delta_trans" value="0.5" />
-        <param name="keyframe_delta_trans" value="0.5" />
         <param name="keyframe_delta_angle" value="0.8" />
         <param name="keyframe_delta_time" value="100.0" />
         <param name="transform_thresholding" value="false" />

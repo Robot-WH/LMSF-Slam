@@ -33,7 +33,7 @@ namespace Estimator{
     /**
      * @brief: INS 组合导航估计器 
      * @details:  融合IMU与GNSS，有IMU时融合IMU，没有IMU数据时，采用 运动学模型  
-     * @param _StateType 不优化内参/优化内参 
+     * @param _StateType 是否优化IMU与GNSS的天线的外参 (杆臂误差)
      * @param _ErrorStateDim 误差状态维度，还得考虑是否优化重力  
      */    
     template<typename _StateType, int _ErrorStateDim>
@@ -163,14 +163,18 @@ namespace Estimator{
                             // Eigen::Vector3d position_obs = tig_ + (gnss_processor_ptr->GetEnuPosition()  
                             //                                             - BaseType::estimated_state__.common_states_.Q_*tig_);
                             Eigen::Vector3d position_obs = gnss_processor.GetEnuPosition(); 
+                            Eigen::Matrix3d cov = data->cov;  
                             // 计算GNSS观测协方差矩阵
-                            Eigen::Matrix3d cov;
-                            cov << 0.5, 0, 0,
-                                        0, 0.5, 0,
-                                         0, 0, 0.5;  
-                            std::cout<<"gnss cov: "<<std::endl<<data->cov<<std::endl;
-                            corrector_ptr_->Correct(position_obs, data->timestamp, data->cov, BaseType::estimated_state_, BaseType::cov_);  
+                            if (cov == Eigen::Matrix3d::Zero()) {
+                                cov  << 1, 0, 0,
+                                            0, 1, 0,
+                                            0, 0, 1;  
+                            }
+                            std::cout<<"gnss cov: "<<std::endl<<cov<<std::endl;
+                            corrector_ptr_->Correct(position_obs, data->timestamp, cov, BaseType::estimated_state_, BaseType::cov_);  
                             std::cout<<"estimator correct!, GPS observe: "<<position_obs.transpose()<<std::endl;
+                            std::cout<<"imu gyro bias: "<<BaseType::estimated_state_.gyro_bias_.transpose()
+                            <<"acc bias: "<<BaseType::estimated_state_.acc_bias_.transpose()<<std::endl;
                         } 
                     }
                 }

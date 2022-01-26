@@ -1,7 +1,6 @@
 
 #include <ros/ros.h>
 #include <iostream>
-
 // ros消息  
 #include <sensor_msgs/PointCloud2.h>
 #include <nav_msgs/Odometry.h>
@@ -94,7 +93,6 @@ public:
     void cloud_callback(const sensor_msgs::PointCloud2ConstPtr& cloud_msg);
 };
 
-
 void lidarOdometry_node::initialize_params() {
     // 设置原点坐标系名字
     odom_frame_id = private_nh.param<std::string>("odom_frame_id", "/odom");
@@ -115,7 +113,6 @@ void lidarOdometry_node::initialize_params() {
     // 设置匹配方法   默认为ndt    
     registration = Set_NDTOMP_param(private_nh);
 }
-
 
 /**
  * @brief estimate the relative pose between an input cloud and a keyframe cloud   这个里程计需要重点优化预测值的给定
@@ -233,7 +230,6 @@ Eigen::Matrix4f lidarOdometry_node::matching(const ros::Time& stamp, const pcl::
 
     // 根据匀速运动假设进行预测    
     predict_trans = trans*delta_motion;         // Twb1*Tb1b2 = Twb2
-    
     // 返回当前帧的世界坐标 
     return trans;
 }    
@@ -304,7 +300,6 @@ void lidarOdometry_node::cloud_callback(const sensor_msgs::PointCloud2ConstPtr& 
     // 发布话题     lidar_frame_id =   /lidar_odom
     publish_odometry(cloud_msg->header.stamp, pose);
 }
-
 
 int main(int argc, char **argv)
 {

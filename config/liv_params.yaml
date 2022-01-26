@@ -12,6 +12,14 @@ liv_slam:
   odometryFrame: "odom"
   mapFrame: "map"
 
+  Registration:
+    NDT:
+      ndt_resolution: 1
+      transformation_epsilon: 0.01
+      maximum_iterations: 50  
+      num_threads: 3
+      nn_search_method: "DIRECT7"
+
   # GPS Settings
   useImuHeadingInitialization: true           # if using GPS data, set to "true"
   useGpsElevation: false                      # if GPS elevation is bad, set to "false"

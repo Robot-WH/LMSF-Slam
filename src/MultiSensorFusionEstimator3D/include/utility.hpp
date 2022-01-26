@@ -42,6 +42,7 @@
 #include <pcl_conversions/pcl_conversions.h>
 
 #include "tool/file_manager.hpp"
+#include "tic_toc.h"
 
 using namespace std;
 typedef pcl::PointXYZI PointType;
