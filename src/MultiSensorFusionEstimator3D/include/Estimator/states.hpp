@@ -11,9 +11,9 @@
 #ifndef _STATES_HPP_
 #define _STATES_HPP_
 
-#include "utility.hpp"
+#include <eigen3/Eigen/Dense>
 
-namespace Estimator{
+namespace Slam3D{
 
     static constexpr unsigned int Index_pos = 0;
     static constexpr unsigned int Index_vel = 3;

@@ -8,13 +8,12 @@
  * @Others: 
  */
 
-#ifndef _JACOBIAN_STATE_WITH_ERROR_HPP_
-#define _JACOBIAN_STATE_WITH_ERROR_HPP_
+#pragma once 
 
 #include "utility.hpp"
 #include "Estimator/states.hpp" 
 
-namespace Estimator{
+namespace Slam3D{
 
     /**
      * @brief:  状态关于其误差状态的jacobian  
@@ -41,5 +40,4 @@ namespace Estimator{
         return jacobian;                                                          
     }
 }; // namespace Estimator
-#endif
 

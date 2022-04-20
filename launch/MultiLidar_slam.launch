@@ -1,0 +1,10 @@
+<launch>
+    <param name="use_sim_time" value="true"/>
+    <!--启动配置好的rviz-->
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find liv_slam)/rviz/hdl_graph_slam.rviz" />
+    <!-- Parameters -->
+    <rosparam file="$(find liv_slam)/config/MultiLidar_system/ros_param.yaml" command="load" />
+    <node name="nmea_topic_driver" pkg="nmea_navsat_driver" type="nmea_topic_driver" output="screen" />
+    <node name="lidar_lidar_odometry_node" pkg="liv_slam" type="lidar_lidar_odometry_node" output="screen">
+    </node>
+</launch>

@@ -22,13 +22,9 @@
 #include "Sensor/gnss_data_process.hpp"
 #include "Sensor/sensor_process_interface.hpp"
 #include "Initialized/imu_initialized_tool.hpp"
-#include "LidarOdometry/LidarOdometryBase.hpp"
+#include "LidarTracker/LidarTrackerBase.hpp"
 
-namespace Estimator{
-
-    using Sensor::ImuDataConstPtr;
-    using Sensor::GnssDataConstPtr;  
-    using Sensor::SensorProcessInterface;  
+namespace Slam3D{
 
     template<typename _StateType, int _ErrorStateDim>
     using LidarCorrectorPtr = std::unique_ptr<CorrectorInterface<_StateType, Eigen::Vector3d, _ErrorStateDim>>;
@@ -36,7 +32,7 @@ namespace Estimator{
     template<typename _StateType, int _ErrorStateDim>
     using XYZCorrectorPtr = std::unique_ptr<CorrectorInterface<_StateType, Eigen::Vector3d, _ErrorStateDim>>;
     //  激光里程计类型  
-    using LidarOdometryPtr = std::unique_ptr<LidarOdometryBase<LidarDataConstPtr, Eigen::Matrix4d>>;
+    using LidarTrackerPtr = std::unique_ptr<Module::LidarTrackerBase<Sensor::PCLConstPtr>>;
 
     /**
      * @brief: LIO估计器   
@@ -48,19 +44,19 @@ namespace Estimator{
      */    
     template<typename _StateType, int _ErrorStateDim>
     class LioEstimator  : public FilterEstimatorBase<_StateType, _ErrorStateDim, 
-                                                                LidarDataConstPtr, ImuDataConstPtr, GnssDataConstPtr> 
+                                                LidarDataConstPtr, ImuDataConstPtr, GnssDataConstPtr> 
     {
-            using BaseType = 
-                FilterEstimatorBase<_StateType, _ErrorStateDim, LidarDataConstPtr, ImuDataConstPtr, GnssDataConstPtr>;
+            using BaseType = FilterEstimatorBase<_StateType, _ErrorStateDim, 
+                                                    LidarDataConstPtr, ImuDataConstPtr, GnssDataConstPtr>;
             public:
                 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
                 LioEstimator(float const& acc_noise, float const& gyro_noise, float const& acc_bias_noise, 
-                                            float const& gyro_bias_noise, LidarOdometryPtr lidar_odometry = nullptr,      // 用于初始外参标定的激光里程计
+                                            float const& gyro_bias_noise, LidarTrackerPtr lidar_odometry = nullptr,      // 用于初始外参标定的激光里程计
                                             //XYZCorrectorPtr<_StateType, _ErrorStateDim> corrector_ptr,
                                             std::unique_ptr<Model::ImuMotionModelInterface> imu_motion_model_ptr
                                                 = std::make_unique<Model::ImuMidIntegralModel>()  // 默认中值积分
                                           ) : imu_predictor_(acc_noise, gyro_noise, acc_bias_noise, gyro_bias_noise, 
-                                                std::move(imu_motion_model_ptr)), lidar_odometry_(std::move(lidar_odometry)) 
+                                                std::move(imu_motion_model_ptr)), lidar_tracker_(std::move(lidar_odometry)) 
                 {
                             // 初始化 用于INS组合导航的估计器  用于外参估计
                             ins_estimator_.reset(new InsEstimator<StatesWithImu, 15>(
@@ -148,13 +144,14 @@ namespace Estimator{
                  */                
                 virtual void Process(LidarDataConstPtr const& data) override 
                 {
+                    PCLPtr pointcloud(new PCLType(data->point_clouds_)); 
                     // 如果需要估计外参
                     if (ESTIMATE_EXTRINSIC_) 
                     {
                         // 计算纯激光里程计
-                        if (lidar_odometry_ != nullptr) 
+                        if (lidar_tracker_ != nullptr) 
                         {
-                            lidar_odometry_->Input(data);  
+                            // lidar_tracker_->Solve(pointcloud);  
                         }
                         // 估计出激光与IMU的外参后进行初始化 
                         ESTIMATE_EXTRINSIC_ = false;  
@@ -242,7 +239,7 @@ namespace Estimator{
                 
             private:
                 std::unique_ptr<InsEstimator<StatesWithImu, 15>> ins_estimator_; // INS估计器  用于GNSS&Lidar外参标定 
-                LidarOdometryPtr lidar_odometry_;   // 激光里程计  用于外参标定时激光运动的计算  
+                LidarTrackerPtr lidar_tracker_;   // 激光里程计  用于外参标定时激光运动的计算  
                 ImuPredictor imu_predictor_;                 // Imu 预测器  
                 std::unique_ptr<CorrectorInterface<_StateType, Eigen::Vector3d, _ErrorStateDim>> corrector_ptr_;  // 位置校正器
                 ImuInitializedTool imu_initialized_tool_;    // IMU 初始化工具  

@@ -36,6 +36,7 @@ private:
     ros::Subscriber points_sub;
     ros::Publisher odom_pub;         // 发布/odom话题
     ros::Publisher pubLaserPath;     // 发布轨迹
+    ros::Publisher pubLaserCloudSurround;       // 局部地图
     // tf发布
     tf::TransformBroadcaster odom_broadcaster;       // 发布 odom -> Lidar tf变换 
     tf::TransformBroadcaster keyframe_broadcaster;   // odom->KF
@@ -71,6 +72,7 @@ private:
     std::string lidar_frame_id;                  
 
 public:
+
     lidarOdometry_node(/* args */)
     {
         private_nh = ros::NodeHandle("~");
@@ -80,6 +82,8 @@ public:
         // ROS topics    去除了畸变以及噪声的点云  
         points_sub = private_nh.subscribe(pointcloud_topic, 100, &lidarOdometry_node::cloud_callback, this);
         odom_pub = nh.advertise<nav_msgs::Odometry>("/odom", 32); 
+         // 局部地图
+	    pubLaserCloudSurround = nh.advertise<sensor_msgs::PointCloud2>("/local_map", 100);
         // 发布轨迹   
         pubLaserPath = nh.advertise<nav_msgs::Path>("/laser_odom_path", 100);
         initialize_params();
@@ -111,7 +115,7 @@ void lidarOdometry_node::initialize_params() {
     windows_size = private_nh.param<int>("windows_size", 10);
     std::cout<<" lidar odom windows_size: "<<windows_size<<std::endl;
     // 设置匹配方法   默认为ndt    
-    registration = Set_NDTOMP_param(private_nh);
+    registration = SetNdtParam(private_nh);
 }
 
 /**
@@ -120,7 +124,8 @@ void lidarOdometry_node::initialize_params() {
  * @param cloud  the input cloud
  * @return 当前帧在全局坐标系下的pose
  */
-Eigen::Matrix4f lidarOdometry_node::matching(const ros::Time& stamp, const pcl::PointCloud<PointT>::ConstPtr& cloud) 
+Eigen::Matrix4f lidarOdometry_node::matching(const ros::Time& stamp, 
+    const pcl::PointCloud<PointT>::ConstPtr& cloud) 
 {    
     TicToc tt;  
     // 第一帧时
@@ -148,7 +153,7 @@ Eigen::Matrix4f lidarOdometry_node::matching(const ros::Time& stamp, const pcl::
     datas.emplace_back(tt.toc("match time:"));  
     datas.push_back(score);  
     // 时间保存  
-    SaveDataCsv("/slam_data/time", "/slam_data/time/times_scan_scan.csv", datas, {"time_scan_scan", "score"});
+    // SaveDataCsv("/slam_data/time", "/slam_data/time/times_scan_scan.csv", datas, {"time_scan_scan", "score"});
 
     // 如果迭代没收敛   则该帧忽略    匹配的协方差应该设置很大 
     if(!registration->hasConverged()) 
@@ -178,7 +183,6 @@ Eigen::Matrix4f lidarOdometry_node::matching(const ros::Time& stamp, const pcl::
     // std::cout<<" odom : "<<std::endl<<trans<<std::endl;
     // Tb1w*Twb2 = Tb1b2
     delta_motion = prev_trans.inverse()*trans;                               // 前两帧位姿的增量   用于预测下一帧位姿
-
     // 判断是否重新设置关键帧
     double delta_trans = delta_motion.block<3, 1>(0, 3).norm();         
     // 旋转矩阵对应 u*theta  对应四元数  e^u*theta/2  = [cos(theta/2), usin(theta/2)]
@@ -186,15 +190,14 @@ Eigen::Matrix4f lidarOdometry_node::matching(const ros::Time& stamp, const pcl::
     q_trans.normalize();   
     double delta_angle = std::acos(q_trans.w())*2;     // 获得弧度    45度 约等于 0.8  
     double delta_time = (stamp - keyframe_stamp).toSec();
-
     // 满足关键帧条件
-    if(delta_trans > keyframe_delta_trans || delta_angle > keyframe_delta_angle || delta_time > keyframe_delta_time) 
+    if(delta_trans > keyframe_delta_trans || delta_angle > keyframe_delta_angle 
+        || delta_time > keyframe_delta_time) 
     {
         // 变换点云到odom坐标 
         // 执行变换，并将结果保存在新创建的‎‎ transformed_cloud ‎‎中
         pcl::PointCloud<PointT>::Ptr transformed_cloud (new pcl::PointCloud<PointT>());
         pcl::transformPointCloud (*cloud, *transformed_cloud, trans);
-
         // 更新滑动窗口  
         if(FramesWin.size()>=windows_size)
         {  
@@ -214,7 +217,6 @@ Eigen::Matrix4f lidarOdometry_node::matching(const ros::Time& stamp, const pcl::
            *submap += *transformed_cloud;      
            FramesWin.emplace_back(std::move(transformed_cloud));   // std::move后变成右值后会调用移动构造函数， transformed_cloud的内容会被转移  
         }
-        
         // 降采样 
         if(FramesWin.size() >= 5)
         {
@@ -227,13 +229,11 @@ Eigen::Matrix4f lidarOdometry_node::matching(const ros::Time& stamp, const pcl::
         // 记录
         prev_trans = trans;   
     }
-
     // 根据匀速运动假设进行预测    
     predict_trans = trans*delta_motion;         // Twb1*Tb1b2 = Twb2
     // 返回当前帧的世界坐标 
     return trans;
 }    
-
 
 /**
  * @brief publish odometry
@@ -245,12 +245,11 @@ void lidarOdometry_node::publish_odometry(const ros::Time& stamp, const Eigen::M
     // publish the transform                发布当前帧里程计到/odom话题                 
     nav_msgs::Odometry odom;                            
     odom.header.stamp = stamp;
-    odom.header.frame_id = odom_frame_id;       // odom坐标    /odom
-    odom.child_frame_id = lidar_frame_id;        // /lidar_odom
+    odom.header.frame_id = odom_frame_id;     // odom坐标    /odom
+    odom.child_frame_id = lidar_frame_id;           // /lidar_odom
     odom.pose.pose.position.x = pose(0, 3);
     odom.pose.pose.position.y = pose(1, 3);
     odom.pose.pose.position.z = pose(2, 3);
-    
     // 旋转矩阵 -> 四元数
     Eigen::Quaternionf quat(pose.block<3, 3>(0, 0));
     quat.normalize();
@@ -270,7 +269,6 @@ void lidarOdometry_node::publish_odometry(const ros::Time& stamp, const Eigen::M
     laserPath.poses.push_back(laserPose);
     laserPath.header.frame_id = odom_frame_id;      // odom坐标     /odom
     pubLaserPath.publish(laserPath);
-
     // 发布TF
 	static tf::TransformBroadcaster br;
 	tf::Transform transform;
@@ -284,7 +282,7 @@ void lidarOdometry_node::publish_odometry(const ros::Time& stamp, const Eigen::M
 	q.setZ(quat.z());    
 
 	transform.setRotation(q);
-	br.sendTransform(tf::StampedTransform(transform, stamp, odom_frame_id, lidar_frame_id));
+	br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), odom_frame_id, lidar_frame_id));
 }
 
 
@@ -299,12 +297,18 @@ void lidarOdometry_node::cloud_callback(const sensor_msgs::PointCloud2ConstPtr& 
     printf("odometry time %f ms \n", t_pub.toc());
     // 发布话题     lidar_frame_id =   /lidar_odom
     publish_odometry(cloud_msg->header.stamp, pose);
+    // 发布局部地图
+    sensor_msgs::PointCloud2 allWindowsClouds;
+    pcl::toROSMsg(*submap, allWindowsClouds);
+    allWindowsClouds.header.stamp = cloud_msg->header.stamp;
+    allWindowsClouds.header.frame_id = odom_frame_id;
+    pubLaserCloudSurround.publish(allWindowsClouds);
 }
 
 int main(int argc, char **argv)
 {
     ros::init (argc, argv, "lidarOdometry_node");   
-    ROS_INFO("Started lidarOdometry_node node");  
+    ROS_INFO("Started lidarOdometry_node node   hhahaha");  
     lidarOdometry_node lidar_odometry;
     ros::spin(); 
     return 0;

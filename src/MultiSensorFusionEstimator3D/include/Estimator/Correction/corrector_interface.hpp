@@ -11,7 +11,7 @@
 #ifndef _CORRECTOR_INTERFACE_HPP_
 #define _CORRECTOR_INTERFACE_HPP_
 
-namespace Estimator {
+namespace Slam3D {
 
 /**
  * @brief:  广义滤波器校正抽象类 
@@ -20,7 +20,8 @@ namespace Estimator {
  * @param _ObsType 观测量类型 
  */
 template<typename _StateType, typename  _ObsType, int _StateDim>
-class CorrectorInterface {
+class CorrectorInterface 
+{
     public:
         ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         /**

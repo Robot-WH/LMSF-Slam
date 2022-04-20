@@ -1,0 +1,16 @@
+<launch>
+    <param name="use_sim_time" value="true"/>
+    <param name="lidar_num" value="1"/>   
+    <!-- /left/velodyne_points  /kitti/velo/pointcloud   points_raw    /rslidar_points    /velodyne_points -->
+    <param name="lidar_topic_0" value="/kitti/velo/pointcloud"/>
+    <param name="config_path" value="/home/lwh/code/lwh_ws-master/src/liv_slam-master/config/MultiSensorSystem/ndt_test.yaml"/>
+    
+    <!--启动配置好的rviz-->
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find liv_slam)/rviz/ndt_test.rviz" />
+    <!-- Parameters -->
+    <!-- <rosparam file="$(find liv_slam)/config/MultiSensorSystem/ros_param.yaml" command="load" /> -->
+    
+    <node name="nmea_topic_driver" pkg="nmea_navsat_driver" type="nmea_topic_driver" output="screen" />
+    <node name="MultiSensorFilterSLAM_node" pkg="liv_slam" type="MultiSensorFilterSLAM_node" output="screen">
+    </node>
+</launch>

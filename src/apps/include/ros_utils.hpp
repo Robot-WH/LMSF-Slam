@@ -2,8 +2,8 @@
 #ifndef _ROS_UTILS_HPP
 #define _ROS_UTILS_HPP
 
+#include "utility.hpp"
 #include <ros/ros.h>
-#include <eigen3/Eigen/Dense>
 
 #include <tf/LinearMath/Quaternion.h>
 #include <tf/transform_listener.h>
@@ -20,8 +20,6 @@
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
 #include <geometry_msgs/TransformStamped.h>
-
-#include "utility.hpp"
 
 // 参数服务器  
 class ParamServer {
@@ -248,8 +246,27 @@ class ParamServer {
     }
 };
 
-static sensor_msgs::PointCloud2 publishCloud(ros::Publisher *thisPub, pcl::PointCloud<PointType>::Ptr thisCloud, 
-                                             ros::Time thisStamp, std::string thisFrame) {
+// ros 读取参数   
+template <typename T>
+static T RosReadParam(ros::NodeHandle &n, std::string name)
+{
+    T ans;
+    if (n.getParam(name, ans))
+    {
+        ROS_INFO_STREAM("Loaded " << name << ": " << ans);
+    }
+    else
+    {
+        ROS_ERROR_STREAM("Failed to load " << name);
+    }
+    return ans;
+}
+
+static sensor_msgs::PointCloud2 publishCloud(ros::Publisher *thisPub, 
+                                                                                                    pcl::PointCloud<PointType>::ConstPtr thisCloud, 
+                                                                                                    ros::Time const& thisStamp, 
+                                                                                                    std::string const& thisFrame) 
+{
     sensor_msgs::PointCloud2 tempCloud;
     pcl::toROSMsg(*thisCloud, tempCloud);
     tempCloud.header.stamp = thisStamp;
@@ -260,27 +277,93 @@ static sensor_msgs::PointCloud2 publishCloud(ros::Publisher *thisPub, pcl::Point
     return tempCloud;
 }
 
+static void PublishOdometry(const ros::Time& stamp, const Eigen::Matrix4f& pose) 
+{
+    // // publish the transform                发布当前帧里程计到/odom话题                 
+    // nav_msgs::Odometry odom;                            
+    // odom.header.stamp = stamp;
+    // odom.header.frame_id = odom_frame_id;       // odom坐标    /odom
+    // odom.child_frame_id = lidar_frame_id;        // /lidar_odom
+    // odom.pose.pose.position.x = pose(0, 3);
+    // odom.pose.pose.position.y = pose(1, 3);
+    // odom.pose.pose.position.z = pose(2, 3);
+    
+    // // 旋转矩阵 -> 四元数
+    // Eigen::Quaternionf quat(pose.block<3, 3>(0, 0));
+    // quat.normalize();
+    // // 构造四元数   ROS信息
+    // geometry_msgs::Quaternion odom_quat;
+    // odom_quat.w = quat.w();
+    // odom_quat.x = quat.x();
+    // odom_quat.y = quat.y();
+    // odom_quat.z = quat.z();
+    // odom.pose.pose.orientation = odom_quat;  
+    // odom_pub.publish(odom);
+    // // 发布轨迹  
+    // geometry_msgs::PoseStamped laserPose;    
+    // laserPose.header = odom.header;
+    // laserPose.pose = odom.pose.pose;                // 和laserOdometry的pose相同  
+    // laserPath.header.stamp = odom.header.stamp;
+    // laserPath.poses.push_back(laserPose);
+    // laserPath.header.frame_id = odom_frame_id;      // odom坐标     /odom
+    // pubLaserPath.publish(laserPath);
+
+}
+
+static void PublishTF(Eigen::Vector3f const& p, Eigen::Quaternionf const& quat, ros::Time const& stamp,
+                                                string const& origin_id, string const& frame_id)
+{
+    // 发布TF
+	static tf::TransformBroadcaster br;
+	tf::Transform transform;
+    tf::Quaternion q;
+	transform.setOrigin(tf::Vector3(p[0], p[1], p[2]));
+    q.setW(quat.w());                               
+	q.setX(quat.x());
+	q.setY(quat.y());
+	q.setZ(quat.z());    
+
+	transform.setRotation(q);
+	br.sendTransform(tf::StampedTransform(transform, stamp, origin_id, frame_id));
+}
+
+static void PubVisualizedMarkers(ros::NodeHandle &n, string const& topic_name, 
+                                                                        visualization_msgs::MarkerArray const& markers)
+{
+    static ros::Publisher markers_pub = 
+        n.advertise<visualization_msgs::MarkerArray>(topic_name, 10);        // 可视化
+    // 可视化     
+    if(markers_pub.getNumSubscribers()) 
+    {
+        markers_pub.publish(markers);
+    }  
+}
+
 template<typename T>
-static double ROS_TIME(T msg) {
+static double ROS_TIME(T msg) 
+{
     return msg->header.stamp.toSec();
 }
 
 template<typename T>
-static void imuAngular2rosAngular(sensor_msgs::Imu *thisImuMsg, T *angular_x, T *angular_y, T *angular_z) {
+static void imuAngular2rosAngular(sensor_msgs::Imu *thisImuMsg, T *angular_x, T *angular_y, T *angular_z) 
+{
     *angular_x = thisImuMsg->angular_velocity.x;
     *angular_y = thisImuMsg->angular_velocity.y;
     *angular_z = thisImuMsg->angular_velocity.z;
 }
 
 template<typename T>
-static void imuAccel2rosAccel(sensor_msgs::Imu *thisImuMsg, T *acc_x, T *acc_y, T *acc_z) {
+static void imuAccel2rosAccel(sensor_msgs::Imu *thisImuMsg, T *acc_x, T *acc_y, T *acc_z) 
+{
     *acc_x = thisImuMsg->linear_acceleration.x;
     *acc_y = thisImuMsg->linear_acceleration.y;
     *acc_z = thisImuMsg->linear_acceleration.z;
 }
 
 template<typename T>
-static void imuRPY2rosRPY(sensor_msgs::Imu *thisImuMsg, T *rosRoll, T *rosPitch, T *rosYaw) {
+static void imuRPY2rosRPY(sensor_msgs::Imu *thisImuMsg, T *rosRoll, T *rosPitch, T *rosYaw) 
+{
     double imuRoll, imuPitch, imuYaw;
     tf::Quaternion orientation;
     tf::quaternionMsgToTF(thisImuMsg->orientation, orientation);
@@ -299,8 +382,11 @@ static void imuRPY2rosRPY(sensor_msgs::Imu *thisImuMsg, T *rosRoll, T *rosPitch,
  * @param child_frame_id   tf child frame_id
  * @return converted TransformStamped
  */
-static geometry_msgs::TransformStamped matrix2transform(const ros::Time& stamp, const Eigen::Matrix4f& pose, 
-                                                        const std::string& frame_id, const std::string& child_frame_id) {
+static geometry_msgs::TransformStamped matrix2transform(const ros::Time& stamp, 
+                                                                                                                                const Eigen::Matrix4f& pose, 
+                                                                                                                                const std::string& frame_id, 
+                                                                                                                                const std::string& child_frame_id) 
+{
   // 旋转矩阵 -> 四元数
   Eigen::Quaternionf quat(pose.block<3, 3>(0, 0));
   // 四元数单位化
@@ -327,7 +413,8 @@ static geometry_msgs::TransformStamped matrix2transform(const ros::Time& stamp, 
 }
 // 输入: 位姿的ROS Msg
 // 输出: Eigen变换矩阵
-static Eigen::Isometry3d odom2isometry(const nav_msgs::OdometryConstPtr& odom_msg) {
+static Eigen::Isometry3d odom2isometry(const nav_msgs::OdometryConstPtr& odom_msg) 
+{
   const auto& orientation = odom_msg->pose.pose.orientation;  
   const auto& position = odom_msg->pose.pose.position;
   // ROS   四元数转Eigen

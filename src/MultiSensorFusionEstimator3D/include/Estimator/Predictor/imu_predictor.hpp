@@ -16,7 +16,7 @@
 #include "Estimator/states.hpp"
 #include "Model/MotionModel/Imu_MotionModel/imu_midIntegral_model.hpp"
 
-namespace Estimator{
+namespace Slam3D{
 
     /**
      * @brief 卡尔曼滤波的IMU预测类 
@@ -32,8 +32,8 @@ namespace Estimator{
                                           float const& gyro_noise, 
                                           float const& acc_bias_noise, 
                                           float const& gyro_bias_noise,
-                                          std::unique_ptr<Model::ImuMotionModelInterface> imu_motion_model_ptr
-                                          = std::make_unique<Model::ImuMidIntegralModel>() 
+                                          std::unique_ptr<ImuMotionModelInterface> imu_motion_model_ptr
+                                          = std::make_unique<ImuMidIntegralModel>() 
                                         ) : acc_noise_(acc_noise), 
                                         gyro_noise_(gyro_noise), 
                                         acc_bias_noise_(acc_bias_noise), 
@@ -47,17 +47,20 @@ namespace Estimator{
             ~ImuPredictor() {}
 
             /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-            ImuDataConstPtr const& GetLastData() const {
+            ImuDataConstPtr const& GetLastData() const 
+            {
                 return last_imu_; 
             }
             
             /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-            void SetLastData(ImuDataConstPtr const& data) {
+            void SetLastData(ImuDataConstPtr const& data) 
+            {
                 last_imu_=data;  
             }
 
             /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-            void PredictInitialize(ImuDataConstPtr const& data) {   
+            void PredictInitialize(ImuDataConstPtr const& data) 
+            {   
                 SetLastData(data);
                 imu_motion_model_ptr_->ImuMotionModelInitialize(*data);  
             }
@@ -86,7 +89,7 @@ namespace Estimator{
             // 上一时刻IMU数据  
             ImuDataConstPtr last_imu_; 
             // IMU运动模型
-            std::unique_ptr<Model::ImuMotionModelInterface> imu_motion_model_ptr_;  
+            std::unique_ptr<ImuMotionModelInterface> imu_motion_model_ptr_;  
             // IMU参数
             float acc_noise_;
             float gyro_noise_;
@@ -103,8 +106,9 @@ namespace Estimator{
      */    
     template<>
     void ImuPredictor::computerCovMatrix<StatesWithImu, 15>(StatesWithImu const&states, 
-                                                                                                        ImuDataConstPtr const& curr_data, 
-                                                                                                        Eigen::Matrix<double, 15, 15> &cov) {
+                                                                                                                                ImuDataConstPtr const& curr_data, 
+                                                                                                                                Eigen::Matrix<double, 15, 15> &cov) 
+    {
             // 时间差 
             const double delta_t = curr_data->timestamp - states.common_states_.timestamp_;
             const double delta_t2 = delta_t * delta_t;
@@ -149,7 +153,8 @@ namespace Estimator{
     template<>
     void ImuPredictor::Predict<StatesWithImu, 15>(StatesWithImu &states, 
                                                                                                         ImuDataConstPtr const& curr_data, 
-                                                                                                        Eigen::Matrix<double, 15, 15> &cov) {
+                                                                                                        Eigen::Matrix<double, 15, 15> &cov) 
+    {
         // 如果没有初始化  或者上一时刻状态与上一时刻IMU时间戳不相等 则退出   
         if(states.common_states_.timestamp_ != last_imu_->timestamp) {   
             std::cout<<"predict timestamp error !"<<std::endl;
@@ -159,12 +164,10 @@ namespace Estimator{
         // IMU运动积分只与状态与IMU测量值有关   因此  采用多态方式进行切换 
         //std::cout<<"PVQ predict - acc_bias_: "<<states.acc_bias_.transpose()<<" ,gyro_bias_:"
         //                  <<states.gyro_bias_.transpose()<<std::endl;
-        imu_motion_model_ptr_->ImuPredictPVQ(states.common_states_, curr_data, states.acc_bias_, 
-                                                                                                    states.gyro_bias_);
-        // 更新协方差矩阵
-        computerCovMatrix(states, curr_data, cov);
-        // 更新状态的时间戳 
-        states.common_states_.timestamp_ = curr_data->timestamp;
+        imu_motion_model_ptr_->ImuPredictPVQ(states.common_states_, curr_data, 
+                                                                                                    states.acc_bias_, states.gyro_bias_);
+        computerCovMatrix(states, curr_data, cov);  // 更新协方差矩阵
+        states.common_states_.timestamp_ = curr_data->timestamp; // 更新状态的时间戳 
         // 保存为上一个imu数据 
         last_imu_ = curr_data; 
     }

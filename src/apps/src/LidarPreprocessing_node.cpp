@@ -82,7 +82,7 @@ void LidarPreprocessing::process_init()
     voxelgrid->setLeafSize(downsample_resolution, downsample_resolution, downsample_resolution);
     downsample_filter = voxelgrid;
   }
-  else{
+  else {
     cout<<"disable downsample filter!"<<endl;
     downsample_filter = NULL;   
   }
@@ -131,7 +131,6 @@ void LidarPreprocessing::scan_cb(const sensor_msgs::PointCloud2 cloud_msg)
   pcl::PointCloud<PointT>::ConstPtr filtered = downsample(cloud);    // 降采样
   filtered = process(filtered, startOri, endOri);                    // 点云处理 
   filtered = outlier_removal(filtered);                              // 外点去除
-
   // 发布
   sensor_msgs::PointCloud2 output;
   pcl::toROSMsg(*filtered, output);
@@ -140,7 +139,6 @@ void LidarPreprocessing::scan_cb(const sensor_msgs::PointCloud2 cloud_msg)
   output.header.frame_id = basedFrame;
 //   cout<<"frame_id: "<<output.header.frame_id<<endl;
   points_pub.publish(output);
-    
 }
 
 // 降采样滤波

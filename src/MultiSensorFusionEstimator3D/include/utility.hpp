@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <queue>
 #include <deque>
+#include <unordered_map>
 #include <iostream>
 #include <fstream>
 #include <ctime>
@@ -41,13 +42,16 @@
 #include <pcl/filters/crop_box.h> 
 #include <pcl_conversions/pcl_conversions.h>
 
+#include <glog/logging.h>
+#include <gflags/gflags.h>
+
 #include "tool/file_manager.hpp"
 #include "tic_toc.h"
 
 using namespace std;
 typedef pcl::PointXYZI PointType;
 enum class SensorType { VELODYNE, OUSTER };
-const std::string WORK_SPACE_PATH = "/home/gogo/lwh/lwh_ws/src/liv_slam-master"; 
+const std::string WORK_SPACE_PATH = "/home/lwh/code/lwh_ws-master/src/liv_slam-master"; 
 constexpr double CoefDegreeToRadian = M_PI / 180.;
 constexpr double CoefRadianToDegree = 180. / M_PI;
 

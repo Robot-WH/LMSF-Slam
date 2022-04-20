@@ -3,7 +3,7 @@
     <param name="use_sim_time" value="true"/>
 
     <!--启动配置好的rviz-->
-    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find liv_slam)/rviz/hdl_graph_slam.rviz" />
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find liv_slam)/rviz/ins.rviz" />
 
     <!-- Parameters -->
     <rosparam file="$(find liv_slam)/config/liv_params.yaml" command="load" />

@@ -1,12 +1,11 @@
 
 #include "ros_utils.hpp"
 #include "Estimator/states.hpp"
-#include "Estimator/ins_filter_estimator.hpp" 
+#include "Estimator/estimator/ins_filter_estimator.hpp" 
 #include "boost/scoped_ptr.hpp"
 #include "Estimator/Correction/GNSS/position_correction.hpp"
 
-using namespace Sensor;
-using namespace Estimator;
+using namespace Slam3D; 
 
 ros::Subscriber subImu;                             // IMU
 ros::Subscriber subGnss;                           // gnss    提供真值用于比较  
@@ -20,10 +19,10 @@ nav_msgs::Path ImuPredictPath;              // IMU预测的轨迹
 Eigen::Matrix3d Rwi = Eigen::Matrix3d::Identity();
 Eigen::Vector3d twi = {0, 0, 0};
 // 通过滤波器估计前后两帧间的运动 
-std::unique_ptr<Estimator::InsEstimator<Estimator::StatesWithImu, 15>> ins_estimator;  
+std::unique_ptr<InsEstimator<StatesWithImu, 15>> ins_estimator;  
 // 数据缓存队列
-queue<Sensor::ImuDataPtr> imu_buf;  
-queue<Sensor::GnssDataPtr> gnss_buf;
+queue<ImuDataPtr> imu_buf;  
+queue<GnssDataPtr> gnss_buf;
 // 线程同步相关
 std::mutex m_buf;
 // 坐标系
@@ -36,15 +35,16 @@ float imuGyroBiasN = 0;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void allocateMemory() {
-    ins_estimator.reset( new Estimator::InsEstimator<Estimator::StatesWithImu, 15>(
+    ins_estimator.reset( new InsEstimator<StatesWithImu, 15>(
                                                 imuAccNoise, imuGyroNoise, imuAccBiasN, imuGyroBiasN, 
-                                                Estimator::XYZCorrectorPtr<Estimator::StatesWithImu, 15>(
-                                                    new Estimator::PositionCorrection<Estimator::StatesWithImu, 16, 15>()
+                                                XYZCorrectorPtr<StatesWithImu, 15>(
+                                                    new PositionCorrection<StatesWithImu, 16, 15>()
                                                 )));  
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-void imuHandler( sensor_msgs::ImuConstPtr const& imu_msg) {
+void imuHandler( sensor_msgs::ImuConstPtr const& imu_msg) 
+{
     // 保证队列中 数据的顺序正确 
     static double last_imu_t = -1; 
     if (imu_msg->header.stamp.toSec() <= last_imu_t) {
@@ -53,7 +53,7 @@ void imuHandler( sensor_msgs::ImuConstPtr const& imu_msg) {
     }
     last_imu_t = imu_msg->header.stamp.toSec();
     // 解析IMU数据 
-    Sensor::ImuDataPtr imu_data_ptr = std::make_shared<Sensor::ImuData>();
+    ImuDataPtr imu_data_ptr = std::make_shared<ImuData>();
     // 保存时间戳 
     imu_data_ptr->timestamp = imu_msg->header.stamp.toSec();
     imu_data_ptr->acc << imu_msg->linear_acceleration.x, 
@@ -73,7 +73,8 @@ void imuHandler( sensor_msgs::ImuConstPtr const& imu_msg) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-void gnssHandler(sensor_msgs::NavSatFixConstPtr const& navsat_msg) {
+void gnssHandler(sensor_msgs::NavSatFixConstPtr const& navsat_msg) 
+{
     // 保证队列中 数据的顺序正确 
     static double last_gnss_t = -1; 
     if (navsat_msg->header.stamp.toSec() <= last_gnss_t) {
@@ -82,7 +83,7 @@ void gnssHandler(sensor_msgs::NavSatFixConstPtr const& navsat_msg) {
     }
     last_gnss_t = navsat_msg->header.stamp.toSec();
     // 解析Gnss数据 
-    Sensor::GnssDataPtr gnss_data_ptr = std::make_shared<Sensor::GnssData>();
+    GnssDataPtr gnss_data_ptr = std::make_shared<GnssData>();
     // 保存时间戳 
     gnss_data_ptr->timestamp = navsat_msg->header.stamp.toSec();
     gnss_data_ptr->lla << navsat_msg->latitude,
@@ -96,33 +97,41 @@ void gnssHandler(sensor_msgs::NavSatFixConstPtr const& navsat_msg) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-void Process() {
-    while (true) {   
+void Process() 
+{
+    while (true) 
+    {   
         // 如果有数据容器非空  那么进行处理 
-        if(!imu_buf.empty()||!gnss_buf.empty()) {
+        if(!imu_buf.empty()||!gnss_buf.empty()) 
+        {
             uint8_t sensor_id = 0;
             double earliest_time = numeric_limits<double>::max();  
             // 找到最早的数据  
-            if(!imu_buf.empty()) {   
+            if(!imu_buf.empty()) 
+            {   
                 earliest_time = imu_buf.front()->timestamp;  
                 sensor_id = imu;
             }
-            if(!gnss_buf.empty()) {   
+            if(!gnss_buf.empty()) 
+            {   
                 // 如果gnss更早 
                 if(earliest_time > gnss_buf.front()->timestamp) {
                     earliest_time = gnss_buf.front()->timestamp;
                     sensor_id = gnss;
                 }
             }
-            switch(sensor_id) {
+            switch(sensor_id) 
+            {
                 // 如果是imu数据执行 预测  
-                case imu: {
+                case imu: 
+                {
                     // 取出头数据 
-                    Sensor::ImuDataConstPtr imu_ptr = imu_buf.front();  
+                    ImuDataConstPtr imu_ptr = imu_buf.front();  
                     imu_buf.pop();  
                     ins_estimator->Process(imu_ptr);      // 将数据传入到估计器中进行
                     // 显示当前IMU的预测轨迹
-                    if(ins_estimator->IsInitialized()) {   
+                    if(ins_estimator->IsInitialized()) 
+                    {   
                         CommonStates const& common_states = ins_estimator->GetState().common_states_;     // 获取估计后的通用状态 
                         Eigen::Quaterniond rot = Eigen::Quaterniond::Identity();
                         geometry_msgs::PoseStamped imu_predict_pose; 
@@ -142,24 +151,27 @@ void Process() {
                     }
                 }
                 break;
-                case gnss: {   
+                case gnss: 
+                {   
                     // 至少要保证容器中有2个以上数据才进行处理 
                     if(gnss_buf.size()<2) {
                         break;
                     }
                     // 取出头数据 
-                    Sensor::GnssDataConstPtr gnss_ptr = gnss_buf.front();  
+                    GnssDataConstPtr gnss_ptr = gnss_buf.front();  
                     gnss_buf.pop();  
                     // 如果初始化了  那么开始校正之前 检查是否需要增加预测 
-                    if(ins_estimator->IsInitialized()) {
+                    if(ins_estimator->IsInitialized()) 
+                    {
                         // 由于校正时，上一次IMU的预测状态的时间戳可能与当前校正的时间戳有较大的偏差
                         // 如果存在IMU数据    那么在校正之前需要插值出GNSS时间戳处的IMU数据  然后再次进行预测 
-                        if(!imu_buf.empty()) {
+                        if(!imu_buf.empty())
+                         {
                             // 插值 
-                            Sensor::ImuDataConstPtr curr_imu = imu_buf.front();  
+                            ImuDataConstPtr curr_imu = imu_buf.front();  
                             imu_buf.pop();   
-                            Sensor::ImuDataConstPtr const& last_imu = ins_estimator->GetLastIMU();     // 获取上一个IMU数据 
-                            Sensor::ImuDataConstPtr interpolation_imu = ImuDataLinearInterpolation(last_imu, curr_imu, 
+                            ImuDataConstPtr const& last_imu = ins_estimator->GetLastIMU();     // 获取上一个IMU数据 
+                            ImuDataConstPtr interpolation_imu = ImuDataLinearInterpolation(last_imu, curr_imu, 
                                                                                                         gnss_ptr->timestamp); // 插值出 GNSS 位置处的 IMU数据                                                                       
                             // 用插值后的数剧进行预测
                             ins_estimator->Process(interpolation_imu);  
@@ -172,7 +184,8 @@ void Process() {
                     // 校正 
                     ins_estimator->Process(gnss_ptr);  
                     // 保存GNSS的轨迹 
-                    if(ins_estimator->IsInitialized()) {   
+                    if(ins_estimator->IsInitialized()) 
+                    {   
                         // 获取更新后的GNSS轨迹 
                         GnssDataProcess& gnss_processor = GnssDataProcess::GetInstance();  
                         Eigen::Vector3d xyz = gnss_processor.GetEnuPosition();

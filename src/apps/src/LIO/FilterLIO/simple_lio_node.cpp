@@ -17,7 +17,6 @@
 #include "Estimator/filter_lio_estimator.hpp" 
 #include "boost/scoped_ptr.hpp"
 #include "Estimator/Correction/GNSS/position_correction.hpp"
-#include "LidarOdometry/LidarOdometryDirectMethod.hpp"
 #include "factory/registration/registration_factory.hpp"
 
 using namespace Sensor;
@@ -62,19 +61,19 @@ string nn_search_method;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void allocateMemory() {
-    // 匹配算法设置
-    std::unique_ptr<pcl::Registration<PointType, PointType>> registration_ptr
-        =  Factory::make_ndtomp(ndt_resolution, transformation_epsilon,  maximum_iterations,  num_threads,
-                                                nn_search_method);  
-    // 估计器初始化 
-    estimator.reset( new Estimator::LioEstimator<Estimator::StatesWithImu, 15>(
-                                                imuAccNoise, imuGyroNoise, imuAccBiasN, imuGyroBiasN, 
-                                                // 设置纯激光里程计-用于初始化的外参标定 
-                                                std::make_unique<LidarOdometryDirectMethodLocalMap>(
-                                                    // 设置匹配算法 
-                                                    std::move(registration_ptr)
-                                                )
-                                    ));  
+    // // 匹配算法设置
+    // std::unique_ptr<pcl::Registration<PointType, PointType>> registration_ptr
+    //     =  Factory::make_ndtOmp(ndt_resolution, transformation_epsilon,  maximum_iterations,  num_threads,
+    //                                             nn_search_method);  
+    // // 估计器初始化 
+    // estimator.reset( new Estimator::LioEstimator<Estimator::StatesWithImu, 15>(
+    //                                             imuAccNoise, imuGyroNoise, imuAccBiasN, imuGyroBiasN, 
+    //                                             // 设置纯激光里程计-用于初始化的外参标定 
+    //                                             std::make_unique<LidarTrackerDirectMethodLocalMap>(
+    //                                                 // 设置匹配算法 
+    //                                                 std::move(registration_ptr)
+    //                                             )
+    //                                 ));  
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

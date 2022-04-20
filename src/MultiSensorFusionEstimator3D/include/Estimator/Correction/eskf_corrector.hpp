@@ -11,11 +11,11 @@
 #ifndef _ESKF_CORRECTOR_HPP_
 #define _ESKF_CORRECTOR_HPP_
 
-#include "utility.hpp"
+#include <eigen3/Eigen/Dense>
 #include "states_update.hpp"
 #include "corrector_interface.hpp"
 
-namespace Estimator {
+namespace Slam3D {
 
 /**
  * @brief ESKF滤波器的校正主流程  

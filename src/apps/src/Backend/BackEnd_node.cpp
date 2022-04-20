@@ -583,8 +583,9 @@ visualization_msgs::MarkerArray SlidingWindowBackEnd::createMarkerArray(const ro
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-void SlidingWindowBackEnd::gnssInitialize(Sensor::GNSSData &first_gnss_data, Eigen::Quaterniond const& first_gnss_rotate, 
-                                          KeyFrame::Ptr align_keyframe)
+void SlidingWindowBackEnd::gnssInitialize(Sensor::GNSSData &first_gnss_data, 
+                                                                                            Eigen::Quaterniond const& first_gnss_rotate, 
+                                                                                            KeyFrame::Ptr align_keyframe)
 {
   // 进行初始化      将当前  gnss_data 的LLT数据 作为原点的 值    
   first_gnss_data.InitOriginPosition();
@@ -616,7 +617,6 @@ void SlidingWindowBackEnd::gnssInitialize(Sensor::GNSSData &first_gnss_data, Eig
   {
     keyframe->Pose = Tem * keyframe->Pose;
   }
-
   // 遍历本次优化的全部关键帧  
   for(deque<KeyFrame::Ptr>::iterator keyframe_it = sliding_windows.begin(); keyframe_it != sliding_windows.end(); ++keyframe_it)
   {
@@ -627,7 +627,6 @@ void SlidingWindowBackEnd::gnssInitialize(Sensor::GNSSData &first_gnss_data, Eig
   {
     keyframe->Pose = Tem * keyframe->Pose;
   }
-
   // 如果初始化失败   这个就要保持false  
   gnss_origin_position_inited = true;
 
@@ -1005,7 +1004,7 @@ void SlidingWindowBackEnd::processDataInSingle()
         keyframe->GNSS_Valid = true;  
         gnss_freq_count = GNSS_optimize_freq;  
       }
-      else{
+      else {
         gnss_freq_count--;
       }
       
@@ -1233,20 +1232,18 @@ void SlidingWindowBackEnd::slidingWindowLocalOptimize()
     return;
 
   // Setup optimizer
-  g2o::SparseOptimizer optimizer;                                   // 定义稀疏求解器  
+  g2o::SparseOptimizer optimizer;   // 定义稀疏求解器  
   typedef g2o::BlockSolver<g2o::BlockSolverTraits<6,-1>> Block;     // 重命名 块求解器     
-  //Block::LinearSolverType* linearSolver = new g2o::LinearSolverEigen<Block::PoseMatrixType>();    // ubuntu 18下不行  
+  // Block::LinearSolverType* linearSolver = new g2o::LinearSolverEigen<Block::PoseMatrixType>();    // ubuntu 18下不行  
   std::unique_ptr<Block::LinearSolverType> linearSolver ( new g2o::LinearSolverDense<Block::PoseMatrixType>());
   //Block* solver_ptr = new Block(linearSolver);       // 定义 块求解器  
-  std::unique_ptr<Block> solver_ptr ( new Block ( std::move(linearSolver)));
-  g2o::OptimizationAlgorithmLevenberg* solver = new g2o::OptimizationAlgorithmLevenberg(std::move(solver_ptr));     // 构造优化方法  LM  
+  std::unique_ptr<Block> solver_ptr(new Block(std::move(linearSolver)));
+  std::unique_ptr<g2o::OptimizationAlgorithmLevenberg> solver = new g2o::OptimizationAlgorithmLevenberg(std::move(solver_ptr));     // 构造优化方法  LM  
   optimizer.setAlgorithm(solver);            // 设置优化方法到 稀疏求解器
-
   // 记录本次局部优化中  节点与边的序号   
   int vertexCnt=1, edgeCnt=0;
   // 记录本次优化的全部节点  用于边寻找关联 节点    
   vector<g2o::VertexSE3*> vertexs;         
-  
   // 遍历本次优化的全部关键帧  
   for(deque<KeyFrame::Ptr>::iterator keyframe_it = sliding_windows.begin(); keyframe_it != sliding_windows.end(); ++keyframe_it)
   {    
@@ -1454,7 +1451,6 @@ void SlidingWindowBackEnd::globalOptimize(const Loop::Ptr& loop)
   std::unique_ptr<Block> solver_ptr ( new Block ( std::move(linearSolver)));
   g2o::OptimizationAlgorithmLevenberg* solver = new g2o::OptimizationAlgorithmLevenberg(std::move(solver_ptr));     // 构造优化方法  LM  
   optimizer.setAlgorithm(solver);            // 设置优化方法到 稀疏求解器
-
   // 本次回环连接的关键帧id  
   int id_min = loop->key2->id;
   vector<Loop::Ptr> add_loop; 
@@ -1626,7 +1622,7 @@ void SlidingWindowBackEnd::optimization()
     odom2map_pub.publish(ts);
   }
 
-  if(SaveBackEndPath)
+  if (SaveBackEndPath)
   {
     // 保存局部优化的结果 
     Eigen::Matrix4d gt_pose = Eigen::Matrix4d::Identity();  
@@ -1710,7 +1706,6 @@ void SlidingWindowBackEnd::BackEndProcess()
         }
         // 进行优化 
         optimization();
-          
         // 地图更新
         if(Map_updata_diff_time>= Map_updata_duration)
         {

@@ -10,8 +10,6 @@
 #ifndef _REGISTRATION_FACTORY_HPP_
 #define _REGISTRATION_FACTORY_HPP_
 
-#include "utility.hpp"
-
 #include <pcl/registration/ndt.h>
 #include <pcl/registration/icp.h>
 #include <pcl/registration/gicp.h>
@@ -19,30 +17,41 @@
 #include <pclomp/ndt_omp.h>
 #include <pclomp/gicp_omp.h>
 
-namespace Factory {
+namespace Slam3D {
 
-using NDTOMP = pclomp::NormalDistributionsTransform<PointType, PointType>; 
-using ndtOmpPtr = std::unique_ptr<NDTOMP>;  
+template<typename _PointType>
+using NdtOmp = pclomp::NormalDistributionsTransform<_PointType, _PointType>; 
+template<typename _PointType>
+using NdtOmpPtr = std::unique_ptr<NdtOmp<_PointType>>;  
 
 /**
- * @brief: 
- * @details: 
- * @param {*}
- * @return {*}
+ * @brief: 构造 多线程NDT匹配 
+ * @details: pclomp
+ * @param ndt_resolution ndt网格分辨率
+ * @param transformation_epsilon 优化停止步长
+ * @param step_size ？？？？？？？？
+ * @param maximum_iterations 最大优化迭代数量 
+ * @param num_threads 线程数量
+ * @param nn_search_method 近邻搜索算法 
  */
-ndtOmpPtr make_ndtomp(double const& ndt_resolution,
-                                                        double const& transformation_epsilon, 
-                                                        int const& maximum_iterations, 
-                                                        int const& num_threads,
-                                                        std::string const& nn_search_method) {
+template<typename _PointType>
+NdtOmpPtr<_PointType> make_ndtOmp(float const& ndt_resolution,
+                                                            float const& transformation_epsilon, 
+                                                            float const& step_size,
+                                                            int const& maximum_iterations, 
+                                                            int const& num_threads,
+                                                            std::string const& nn_search_method) 
+{
     // TODO 检查 maximum_iterations， num_threads 是否大于 0  
-    ndtOmpPtr ndt_omp(new NDTOMP());
-    if(num_threads > 0) {
+    NdtOmpPtr<_PointType> ndt_omp(new NdtOmp<_PointType>());
+    if(num_threads > 0) 
+    {
       ndt_omp->setNumThreads(num_threads);      // 3
     }
     ndt_omp->setTransformationEpsilon(transformation_epsilon);    // 步长
     ndt_omp->setMaximumIterations(maximum_iterations);
     ndt_omp->setResolution(ndt_resolution);
+    ndt_omp->setStepSize(step_size); 
     // 匹配方法
     if(nn_search_method == "KDTREE") {
       ndt_omp->setNeighborhoodSearchMethod(pclomp::KDTREE);

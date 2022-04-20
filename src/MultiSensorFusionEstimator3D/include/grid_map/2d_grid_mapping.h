@@ -1,3 +1,12 @@
+/*
+ * @Copyright(C): Your Company
+ * @FileName: 文件名
+ * @Author: 作者
+ * @Version: 版本
+ * @Date: 2021-12-18 18:21:53
+ * @Description: 
+ * @Others: 
+ */
 
 #ifndef GRID_MAPPING_H
 #define GRID_MAPPING_H
@@ -13,7 +22,6 @@ class GridMapping{
 public:
     GridMapping(GridMap* map,  Pose2d& T_r_l,  double& P_occ, double& P_free, double& P_prior);   
     void updateMap(const sensor_msgs::LaserScanConstPtr& scan, Pose2d& robot_pose);      //根据当前机器人的位姿和激光雷达数据跟新一次地图
-
     /** TODO 定义为 protected **/   
     void updateGrid(const Eigen::Vector2d& grid_pos, const double& log_pmzx);                    // 更新栅格  
     double laserInvModel(const double& r, const double& R, const double& cell_size,  const int& range_max);     // 反演观测模型     

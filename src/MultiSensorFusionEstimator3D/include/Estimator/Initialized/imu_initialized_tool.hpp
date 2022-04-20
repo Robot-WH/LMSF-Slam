@@ -6,12 +6,14 @@
 #include "Sensor/gnss_data_process.hpp"
 #include "Sensor/sensor.hpp"
 
-namespace Estimator{
+namespace Slam3D {
+
     /**
      * @brief: 初始化中IMU的相关操作 
      * @details: 
      */    
-    class ImuInitializedTool {
+    class ImuInitializedTool 
+    {
         public:
             ImuInitializedTool() : MeanAccLimit_(0.05),  minimum_dataSize_(10){}
 
@@ -23,7 +25,8 @@ namespace Estimator{
             /**
              * @brief 检查用于初始化的IMU数据数量
              */
-            bool CheckInitializedImuDateNumber(std::vector<Sensor::ImuDataConstPtr> const& imu_datas) const {
+            bool CheckInitializedImuDateNumber(std::vector<ImuDataConstPtr> const& imu_datas) const 
+            {
                 std::cout<<" imu_datas.size(): " << imu_datas.size() <<" minimum_dataSize_: "
                 << minimum_dataSize_ <<std::endl;
                 return (imu_datas.size() >= minimum_dataSize_);
@@ -40,9 +43,13 @@ namespace Estimator{
              * @param[out] mean_gyro 输出平滑后的角速度 
              * @return 是否满足要求 
              */
-            bool GetInfoFromImuData(std::vector<Eigen::Vector3d> const& acc_buf, std::vector<Eigen::Vector3d> const& gyro_buf,
-                                                std::vector<Eigen::Quaterniond> const& rot_buf, Eigen::Vector3d &mean_acc, 
-                                                Eigen::Vector3d &mean_gyro, Eigen::Quaterniond &mean_rot) const {
+            bool GetInfoFromImuData(std::vector<Eigen::Vector3d> const& acc_buf, 
+                                                                    std::vector<Eigen::Vector3d> const& gyro_buf,
+                                                                    std::vector<Eigen::Quaterniond> const& rot_buf, 
+                                                                    Eigen::Vector3d &mean_acc, 
+                                                                    Eigen::Vector3d &mean_gyro, 
+                                                                    Eigen::Quaterniond &mean_rot) const 
+            {
                 // Compute mean and std of the imu buffer.
                 Eigen::Vector3d sum_acc(0., 0., 0.);
                 // 计算加速度均值 
@@ -57,7 +64,8 @@ namespace Estimator{
                 }
                 const Eigen::Vector3d sigma_acc = (sum_err2 / (double)acc_buf.size()).cwiseSqrt();
                 // 求模长 检查是否运动过于剧烈 
-                if  (sigma_acc.norm() > MeanAccLimit_) {
+                if  (sigma_acc.norm() > MeanAccLimit_) 
+                {
                     std::cout << "[CheckImuMotionForStaticInitialization]: Too sigma_acc: " 
                     << sigma_acc.transpose() << std::endl;
                     return false;
@@ -85,7 +93,8 @@ namespace Estimator{
              * @param smooth_gravity 平滑后的重力 
              * @return 是否计算成功 
              */
-            Eigen::Matrix3d const ComputeRotationFromGravity(Eigen::Vector3d const& smooth_gravity) {
+            Eigen::Matrix3d const ComputeRotationFromGravity(Eigen::Vector3d const& smooth_gravity) 
+            {
                 //  z-axis.   world系 即导航系z轴(重力方向) 在 载体系的表示 
                 const Eigen::Vector3d& z_axis = smooth_gravity.normalized(); 
                 //  x-axis.
@@ -109,7 +118,8 @@ namespace Estimator{
              * @brief 陀螺仪偏置  静态初始化 
              * @param gyro_buf 陀螺仪数据 
              */
-            Eigen::Vector3d const StaticInitializeGyroBias(std::vector<Eigen::Vector3d> const& gyro_buf) {   
+            Eigen::Vector3d const StaticInitializeGyroBias(std::vector<Eigen::Vector3d> const& gyro_buf) 
+            {   
                 // 就是求平均值
                 Eigen::Vector3d sum_value;
                 for(auto const& gyro : gyro_buf) {
@@ -117,6 +127,7 @@ namespace Estimator{
                 }
                 return sum_value / gyro_buf.size();   
             }        
+            
         private:
             // 初始化加速度阈值   
             double MeanAccLimit_;  

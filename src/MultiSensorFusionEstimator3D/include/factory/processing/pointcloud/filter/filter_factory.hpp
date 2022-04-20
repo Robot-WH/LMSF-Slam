@@ -11,13 +11,21 @@
 #ifndef _FILTER_FACTORY_HPP_
 #define _FILTER_FACTORY_HPP_
 
-#include "utility.hpp"
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
 #include <pcl/filters/filter.h>
 #include <pcl/filters/radius_outlier_removal.h>
 #include <pcl/filters/statistical_outlier_removal.h>
 #include <pcl/filters/voxel_grid.h>
 
-namespace Factory {
+namespace Algorithm {
+
+template<class PointT>
+using  VoxelGridPtr = std::unique_ptr<pcl::VoxelGrid<PointT>>;  
+template<class PointT>
+using RadiusOutlierRemovalPtr = std::unique_ptr<pcl::RadiusOutlierRemoval<PointT>>;  
+template<class PointT>
+using  StatisticalOutlierRemovalPtr = std::unique_ptr<pcl::StatisticalOutlierRemoval<PointT>>;  
 
 /**
  * @brief: 构建降采样滤波器 voxel  grid 
@@ -25,25 +33,27 @@ namespace Factory {
  * @param resolution voxel 的分辨率  
  */
 template<class PointT>
-typename pcl::VoxelGrid<PointT>::Ptr make_voxelGrid(float const& resolution) {
-    typename pcl::VoxelGrid<PointT>::Ptr voxelgrid(new pcl::VoxelGrid<PointT>());
+VoxelGridPtr<PointT> make_voxelGrid(float const& resolution) 
+{
+    VoxelGridPtr<PointT> voxelgrid(new pcl::VoxelGrid<PointT>());
     voxelgrid->setLeafSize(resolution, resolution, resolution);
-    return voxelgrid;   
+    return std::move(voxelgrid);   
 }
 
 /**
  * @brief: 构建几何离群点滤波  
  * @details 
- * @param Radius 考虑的半径 
- * @param Min_neighbors 半径内最少的点的数量 
+ * @param radius 考虑的半径 
+ * @param min_neighbors 半径内最少的点的数量 
  */
 template<class PointT>
-typename pcl::RadiusOutlierRemoval<PointT>::Ptr make_radiusOutlierRemoval(float const& Radius,
-                                                                                                                                                  uint16_t const& Min_neighbors) {
-    typename pcl::RadiusOutlierRemoval<PointT>::Ptr rad(new pcl::RadiusOutlierRemoval<PointT>());
-    rad->setRadiusSearch(Radius);                                         
-    rad->setMinNeighborsInRadius(Min_neighbors);  
-    return rad;   
+RadiusOutlierRemovalPtr<PointT> make_radiusOutlierRemoval(float const& radius, 
+                                                                                                                                      uint16_t const& min_neighbors) 
+{
+    RadiusOutlierRemovalPtr<PointT> rad(new pcl::RadiusOutlierRemoval<PointT>());
+    rad->setRadiusSearch(radius);                                         
+    rad->setMinNeighborsInRadius(min_neighbors);  
+    return std::move(rad);   
 }
 
 /**
@@ -55,12 +65,13 @@ typename pcl::RadiusOutlierRemoval<PointT>::Ptr make_radiusOutlierRemoval(float 
  * @param k 
  */
 template<class PointT>
-typename pcl::StatisticalOutlierRemoval<PointT>::Ptr make_statisticalOutlierRemoval(uint16_t const& mean_k, 
-                                                                                                                                                               uint8_t const& k) {
-    typename pcl::StatisticalOutlierRemoval<PointT>::Ptr sor;
-    sor.setMeanK (mean_k);                                                                //设置在进行统计时考虑查询点邻近点数
-    sor.setStddevMulThresh (k);                                     // 需要提出的点的平均距离大于标准差的倍数    μ ±k*σ  之外的点 
-    return sor;  
+StatisticalOutlierRemovalPtr<PointT> make_statisticalOutlierRemoval(uint16_t const& mean_k, 
+                                                                                                                                                    uint8_t const& k) 
+{
+    StatisticalOutlierRemovalPtr<PointT> sor;
+    sor->setMeanK (mean_k);                                                                //设置在进行统计时考虑查询点邻近点数
+    sor->setStddevMulThresh (k);                                     // 需要提出的点的平均距离大于标准差的倍数    μ ±k*σ  之外的点 
+    return std::move(sor);  
 }
 
 }

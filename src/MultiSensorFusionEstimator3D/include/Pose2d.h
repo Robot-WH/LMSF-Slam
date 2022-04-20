@@ -1,3 +1,4 @@
+
 // Copyright (C) 2018 Dongsheng Yang <ydsf16@buaa.edu.cn>
 //(Biologically Inspired Mobile Robot Laboratory, Robotics Institute, Beihang University)
 
@@ -63,7 +64,6 @@ public:
     }
     double x_, y_, theta_; 
 }; //class Pose2d
-
 
 #endif
 

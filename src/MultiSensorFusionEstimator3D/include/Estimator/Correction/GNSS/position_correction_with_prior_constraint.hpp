@@ -16,7 +16,7 @@
 #include "Estimator/Correction/GNSS/position_correction.hpp"
 #include "Sensor/Gnss_data.h"
 
-namespace Estimator{
+namespace Slam3D{
     /**
      * @brief 考虑先验运动约束的GNSS校正 
      * @param _StateType 使用状态

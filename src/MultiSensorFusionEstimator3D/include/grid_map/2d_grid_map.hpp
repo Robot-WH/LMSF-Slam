@@ -5,15 +5,16 @@
  * @date 2020.8.22
  **/
 
-#ifndef GRID_MAP_HPP
-#define GRID_MAP_HPP
+#ifndef GRID_MAP_HPP_
+#define GRID_MAP_HPP_
 
 #include <eigen3/Eigen/Core>
-
 #include <opencv2/opencv.hpp>
-
 #include <nav_msgs/OccupancyGrid.h>
 
+/**
+ * @todo 删掉  
+ */
 using namespace std; 
 
 // 2d 占据栅格地图类    
@@ -169,7 +170,6 @@ public:
         cv::Mat img = toCvMat();
         img = img * 255;              // 转换为颜色   也就是 占据的位置是0  黑色  
         cv::imwrite(img_dir, img);
-        
         // 保存配置 
         std::ofstream  file;
         file.open(cfg_dir); 
@@ -198,7 +198,6 @@ protected:
         // 栅格图的原点建立在 左下角  
         int xidx = cvFloor( x / cell_size_ ) + init_x_;                     // 求栅格地图的x坐标     
         int yidx  = size_height_ - cvFloor( y /cell_size_ ) - init_y_;      // 求栅格地图的y坐标 
-         
         // TODO 动态扩张地图
         if((xidx < 0) || (yidx < 0) || (xidx >= size_width_) || (yidx >= size_height_))
             return false;
@@ -207,7 +206,6 @@ protected:
     }
     
 private:
-
     int size_width_, size_height_;                          // 地图初始尺寸     
     // 地图中心相对与地图原点的偏移  点云地图的原点位于栅格地图的中心
     int init_x_, init_y_;                          
@@ -216,7 +214,6 @@ private:
     vector<vector<double>> map_bel_data_;                // 保存所有栅格的概率  
     vector<vector<double>> map_logbel_data_;             // 保存栅格对数概率 
     vector<vector<double>> m_one_, m_show_;               
-    
 };// class GridMap
 
 

@@ -1,6 +1,10 @@
 liv_slam:
   # Topics
-  pointCloudTopic: "/kitti/velo/pointcloud"   # Point cloud data    /kitti/velo/pointcloud   points_raw    /rslidar_points    /velodyne_points
+  pointCloudTopic: "/kitti/velo/pointcloud"   # Point cloud data  /left/velodyne_points  /kitti/velo/pointcloud   points_raw    /rslidar_points    /velodyne_points
+  cloud_topic:
+   - "/left/velodyne_points"
+   - "/right/velodyne_points"
+
   imuTopic: "/imu_raw"                         # IMU data   
   odomTopic: "odometry/imu"                   # IMU pre-preintegration odometry, same frequency as IMU
   gpsTopic: "/gps/fix"                   # GPS odometry topic from navsat, see module_navsat.launch file   "/kitti/oxts/gps/fix"  odometry/gpsz   /gps/fix  

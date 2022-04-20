@@ -11,21 +11,23 @@
 #ifndef _IMU_MIDINTEGRAL_MODEL_HPP_
 #define _IMU_MIDINTEGRAL_MODEL_HPP_
 
-#include "utility.hpp"
+#include <eigen3/Eigen/Dense>
 #include "Sensor/sensor.hpp"
 #include "imu_motion_model_interface.hpp"
 
-namespace Model {
+namespace Slam3D {
     /**
      * @brief IMU运动模型的派生子类  实现中值积分
      */
-    class ImuMidIntegralModel : public ImuMotionModelInterface {
+    class ImuMidIntegralModel : public ImuMotionModelInterface 
+    {
         public:
             /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
             ImuMidIntegralModel() {}
 
             /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-            void ImuMotionModelInitialize(Sensor::ImuData const& curr_imu) override {
+            void ImuMotionModelInitialize(ImuData const& curr_imu) override 
+            {
                 last_imu_ = curr_imu;   
             }
             
@@ -37,10 +39,11 @@ namespace Model {
              * @param acc_bias IMU加速度偏置
              * @param gyro_bias IMU角速度偏置 
              */
-            void ImuPredictPVQ( Estimator::CommonStates &states, 
-                                                        Sensor::ImuDataConstPtr const& curr_imu, 
+            void ImuPredictPVQ( CommonStates &states, 
+                                                        ImuDataConstPtr const& curr_imu, 
                                                         Eigen::Vector3d const& acc_bias, 
-                                                        Eigen::Vector3d const& gyro_bias) override {
+                                                        Eigen::Vector3d const& gyro_bias) override 
+            {
                 // 时间间隔
                 double const delta_t = curr_imu->timestamp - states.timestamp_;
                 double const delta_t2 = delta_t * delta_t;
@@ -65,7 +68,7 @@ namespace Model {
                 return;  
             }
         private:
-            Sensor::ImuData last_imu_;
+            ImuData last_imu_;
     }; // class ImuMidIntegralModel
 } // namespace Model
 

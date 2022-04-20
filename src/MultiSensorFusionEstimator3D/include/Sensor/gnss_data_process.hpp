@@ -11,18 +11,18 @@
 #ifndef _GNSS_DATA_PROCESS_HPP_
 #define _GNSS_DATA_PROCESS_HPP_
 
-#include "utility.hpp"
-#include "ros_utils.hpp"
+#include <eigen3/Eigen/Dense>
 #include "Sensor/sensor.hpp"
 #include "Geocentric/LocalCartesian.hpp"
 
-namespace Sensor { 
+namespace Slam3D { 
 
   /**
    * @brief: GNSS的数据处理 
    * @details:  使用 Meyers' Singleton
    */  
-  class GnssDataProcess {
+  class GnssDataProcess 
+  {
     public:
       ~GnssDataProcess(){}
       GnssDataProcess(GnssDataProcess const& object) = delete;   // 拒绝拷贝构造

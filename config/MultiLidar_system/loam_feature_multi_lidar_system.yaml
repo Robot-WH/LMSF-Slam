@@ -1,0 +1,208 @@
+%YAML:1.0
+
+# 激光tracking的模式   
+lidar_tracking_mode: "scan_map"     # loam   
+# 雷达的数量
+lidar_num: 2
+# 雷达参数 
+scan_period: 0.1
+lidar_scan: 16
+
+# Multiple thread support
+multiple_thread: 0
+
+# --------------------------------------------------预处理设置 
+# 距离滤波 
+preprocess.distanceFilter.max: 80
+preprocess.distanceFilter.min: 2
+# ------------------------------------------------特征点相关参数 
+
+
+# --------------------------------------------------tracker设置 
+tracker.working_mode: "scan_map"     # loam  
+# 如果使用的是特征匹配的具体方法 
+tracker.scan_map.type: "loam"
+
+
+
+tracker.local_map_type: "sliding_window"
+tracker.local_map_type.sliding_window.size: 10
+
+
+
+# segmmentation
+segment_cloud: 1 # RHD02lab: 1, RHD03garden: 1, RHD04building: 1
+horizon_scan: 1800
+min_cluster_size: 30
+segment_valid_point_num: 5
+segment_valid_line_num: 3
+segment_theta: 0.53 # Lego-loam: 1.0
+
+# laser parameters
+idx_ref: 0
+n_scans: 16
+num_of_laser: 2
+
+cloud_topic:
+   - "/left/velodyne_points"
+   - "/right/velodyne_points"
+
+# window sizes
+window_size: 4
+opt_window_size: 2
+
+############################## For normal use
+# Extrinsic parameter between multiple LiDARs.
+estimate_extrinsic: 0   # 0  Have an accurate extrinsic parameters. We will trust the following imu^R_cam, imu^T_cam, don't change it.
+                        # 1  Have an initial guess about extrinsic parameters. We will optimize around your initial guess.
+                        # 2  Have no prior about extrinsic parameters. We will initialize and optimize around them
+
+# qx qy qz qw px py pz
+body_T_laser: !!opencv-matrix
+   rows: 2
+   cols: 7
+   dt: d
+#    data: [0, 0, 0, 1, 0, 0, 0,
+#           0, 0, 0, 1, 0, 0, 0] # w/o initialization
+#    data: [0, 0, 0, 1, 0, 0, 0,
+#           0.3113, -0.0103, -0.03334, 0.94956, 0.1130, -0.47195, -0.10341] # initialization (old)
+#    data: [0, 0, 0, 1, 0, 0, 0,
+#           0.31744, -0.00431, 0.01186, 0.9468, 0.0308, -0.56911, -0.12243] # initialization (new)
+   # data: [0, 0, 0, 1, 0, 0, 0,
+   #        0.32182, -0.00094, 0.00744, 0.94677, 0.06641, -0.49424, -0.11251] # refinement
+   data: [0, 0, 0, 1, 0, 0, 0,
+          0.34087, -0.0101817, 0.0147921, 0.945613, 0.0334837, -0.540249, -0.141798] # PS-Calib
+
+############################## For Journal experiments
+# 1
+# parameters for testing the online calibration
+# The extrinsics here are for different-level initialization
+# estimate_extrinsic: 1 
+# body_T_laser: !!opencv-matrix
+#    rows: 2
+#    cols: 7
+#    dt: d
+#    data: [0, 0, 0, 1, 0, 0, 0,
+#           0, 0, 0, 1, 0, 0, 0] # w/o initialization
+   # data: [0.00000, 0.00000, 0.00000, 1.00000, 0.00000, 0.00000, 0.00000,
+   #        0.21644, 0.0, 0.0, 0.9763, 0.0, 0.0, 0.0] # rough rotation: 25deg 
+   # data: [0.00000, 0.00000, 0.00000, 1.00000, 0.00000, 0.00000, 0.00000,
+   #        0.30071, 0.0, 0.0, 0.95372, 0.0, 0.0, 0.0] # rough rotation: 35deg
+   # data: [0.00000, 0.00000, 0.00000, 1.00000, 0.00000, 0.00000, 0.00000,
+   #        0.00000, 0.0, 0.0, 1.0, 0, -0.5, -0.1] # rough translation: 0deg
+   # data: [0.00000, 0.00000, 0.00000, 1.00000, 0.00000, 0.00000, 0.00000,
+   #        0.34202, 0, 0, 0.93969, 0, -0.456, -0.122] # CAD model
+
+# 2
+# parameters for testing the SLAM
+# The extrinsics here are for different-level extrinsics
+# estimate_extrinsic: 0
+# body_T_laser: !!opencv-matrix
+#    rows: 2
+#    cols: 7
+#    dt: d
+   # data: [0, 0, 0, 1, 0, 0, 0,
+   # #        0, 0, 0, 1, 0, 0, 0] # w/o calib
+   # data : [0, 0, 0, 1, 0, 0, 0,
+   #         0.41025, 0.10569, 0.058295, 0.90395, 0.133, -0.440, -0.042] # inject noise
+   # data: [0, 0, 0, 1, 0, 0, 0,
+   #        0.3113, -0.0103, -0.03334, 0.94956, 0.1130, -0.47195, -0.10341] # initialization 
+   # data: [0, 0, 0, 1, 0, 0, 0,
+   #        0.34202, 0, 0, 0.93969, 0, -0.456, -0.122] # CAD model
+   # data: [0, 0, 0, 1, 0, 0, 0,
+   #        0.32182, -0.00094, 0.00744, 0.94677, 0.06641, -0.49424, -0.11251] # refinement
+   # data: [0, 0, 0, 1, 0, 0, 0,
+   #        0.34087, -0.0101817, 0.0147921, 0.945613, 0.0334837, -0.540249, -0.141798] # PS-Calib
+##############################
+
+#unsynchronization parameters
+estimate_td: 0                      # 0 have an accurate time offset among sensors
+                                    # 1 online estimate time offset among sensors
+
+td: !!opencv-matrix                 # initial value of time offset. unit: s. readed image clock + td = real image clock (IMU clock)
+   rows: 1
+   cols: 2
+   dt: d
+   data: [0, 0]
+
+distortion: 0
+laser_sync_threshold: 0.07
+
+######################################################## odometry
+# optimization 
+max_solver_time: 0.015  # max solver itration time (s), to guarantee real time
+max_num_iterations: 4   # max solver itrations, to guarantee real time
+
+roi_range: 0.5
+distance_sq_threshold: 25
+nearby_scan: 2.5
+
+# movement type
+planar_movement: 0
+
+# feature corresponding paprameters
+min_match_sq_dis: 1.0
+min_plane_dis: 0.2
+
+# factor
+marginalization_factor: 1
+point_plane_factor: 1
+point_edge_factor: 1
+prior_factor: 1
+prior_factor_pos: 5
+prior_factor_rot: 40
+
+pcl_viewer: 0
+pcl_viewer_normal_ratio: 10
+
+# calibration converage parameters
+n_cumu_feature: 20
+lambda_initial: 100
+lambda_thre_calib: 70
+n_calib: 25
+
+# good feature
+odom_gf_ratio: 0.8
+
+skip_num_odom_pub: 2
+
+######################################################## mapping
+map_corner_res: 0.2
+map_surf_res: 0.4
+map_outlier_res: 0.8
+map_sur_kf_res: 1.0
+map_eig_thre: 100
+map_deg_thre: 42
+
+distance_keyframes: 1.0
+orientation_keyframes: 1.0 
+surrounding_kf_radius: 30.0
+
+# uncertainty parameter
+# translation, rotation, point (rho, phi, zeta) (in lie group)
+uct_ext: !!opencv-matrix
+   rows: 2
+   cols: 6
+   dt: d
+   data: [0, 0, 0, 0, 0, 0,
+          0.00270, 0.00330, 0.00624, 0.00018, 0.00005, 0.00014] # after calibration 
+         #  0.0025, 0.0025, 0.0025, 0.00030461, 0.00030461, 0.00030461] # manual setting for large perturbation
+         #  0.0025, 0.0025, 0.0025, 0.01, 0.01, 0.01] # variance: 0.05m, 5deg # large
+
+
+uct_measurement: !!opencv-matrix
+   rows: 1
+   cols: 3
+   dt: d
+   data: [0.0025, 0.0025, 0.0025]
+
+uct_ext_ratio: 1.0 # small or other RHD: 0.1, little: 0.5, medium: 1, large: 15
+
+# RHD02: 10, RHD03: 10, RHD04: 10
+trace_threshold_mapping: 100 # min_d: 20
+
+# 1. 10m: 1.25
+# 2. 20m: 7.8
+# 3. 30m: 11.5
+# 4. 40m: 20
+# 5. 50m: 31.25

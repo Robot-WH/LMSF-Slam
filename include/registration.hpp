@@ -90,7 +90,7 @@ boost::shared_ptr<pcl::Registration<pcl::PointXYZI, pcl::PointXYZI>> select_regi
 
 
 
-boost::shared_ptr<pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>> Set_NDTOMP_param(ros::NodeHandle& pnh) {
+boost::shared_ptr<pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>> SetNdtParam(ros::NodeHandle& pnh) {
   using PointT = pcl::PointXYZI;
  
   double ndt_resolution = pnh.param<double>("ndt_resolution", 0.5);
@@ -118,7 +118,7 @@ boost::shared_ptr<pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::Poin
 
 }
 
-boost::shared_ptr<pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>> Set_NDTOMP_param(ros::NodeHandle& pnh, double ndt_resolution) {
+boost::shared_ptr<pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>> SetNdtParam(ros::NodeHandle& pnh, double ndt_resolution) {
   using PointT = pcl::PointXYZI;
  
   int num_threads = pnh.param<int>("ndt_num_threads", 3);

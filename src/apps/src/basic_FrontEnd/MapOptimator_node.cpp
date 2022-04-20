@@ -34,7 +34,7 @@
 using namespace std;
 
 typedef pcl::PointXYZI PointT;
-const int windows_size = 20;              // 滑动窗口尺寸  
+int windows_size = 10;              // 滑动窗口尺寸  
 
 int Optimize_freq = 4;                // 每4帧优化一次  
 bool full = false;
@@ -61,7 +61,7 @@ Eigen::Matrix4f Pose_opt_curr = Eigen::Matrix4f::Identity();
 // 滑动窗口    windows_size 必须要是 const   
 // PointT Frames[windows_size];
 int Frame_count = 0;
-pcl::PointCloud<PointT>::Ptr FramesWin[windows_size];
+std::vector<pcl::PointCloud<PointT>::Ptr> FramesWin;
 
 Eigen::Matrix4f T_win_last = Eigen::Matrix4f::Identity();      // 滑窗最后一帧的位姿
 
@@ -82,8 +82,6 @@ string odom_frame_id;
 string optimized_lidar_frame_id;
 
 nav_msgs::Path laserAfterMappedPath;
-
-
 // odometry 数据订阅   
 ros::Subscriber subLaserOdometry ;
 // Todo: 接收去畸变后的点云
@@ -283,7 +281,6 @@ void MapOptimize()
        mBuf.unlock();
        // 将odom转到Map系中
        transformAssociateToMap();   
-
        // 如果滑窗填满则判断运动  
        if(full)
        {
@@ -291,7 +288,6 @@ void MapOptimize()
         Eigen::Matrix4f delta_move = T_win_last.inverse()*Pose_opt_curr;     
         // 检查
         double dx = delta_move.block<3, 1>(0, 3).norm();                                  // 平移量
-
         // 旋转矩阵对应 u*theta  对应四元数  e^u*theta/2  = [cos(theta/2), usin(theta/2)]
         Eigen::Quaternionf q_a(delta_move.block<3, 3>(0, 0));
         q_a.normalize();   
@@ -302,7 +298,6 @@ void MapOptimize()
             break;
         }    
        }
-
        /************************************************************ 地图匹配校正 ***********************************************/
        // 如果滑动窗口存在点云  则进行匹配 
        if(Frame_count)
@@ -320,7 +315,6 @@ void MapOptimize()
           registration->setInputSource(lidarCloud);    
           pcl::PointCloud<PointT>::Ptr aligned(new pcl::PointCloud<PointT>());  
           registration->align(*aligned, Pose_opt_curr);         // 将之前直接转到Map系的位姿Pose_opt_curr作为预测  
-
           // 如果迭代没收敛   则该帧忽略  
           if(!registration->hasConverged()) 
           {
@@ -342,7 +336,7 @@ void MapOptimize()
           vector<double> datas;
           datas.emplace_back(t_pub.toc("submap match time:"));  
           // 时间保存  
-          SaveDataCsv("/slam_data/time", "/slam_data/time/times_scan_map.csv", datas, {"time_scan_map"});
+          // SaveDataCsv("/slam_data/time", "/slam_data/time/times_scan_map.csv", datas, {"time_scan_map"});
        }  
 
        /*************************************** 更新全局地图     只有经过优化 才能添加到全局地图中 **********************************************/
@@ -355,7 +349,6 @@ void MapOptimize()
           pointAssociateToMap(&lidarCloud->points[i], &point);
           FramesWin[Frame_count]->push_back(point);
        }
-
        // 如果滑窗满了   则窗口滑动
        if(full)
        {  
@@ -375,7 +368,6 @@ void MapOptimize()
 
          Frame_count++;          
        }
-
        //保存窗口最后一帧的位姿 
         T_win_last = Pose_opt_curr;
         /************************************************************* 发布信息 ***************************************************************/
@@ -422,17 +414,17 @@ void MapOptimize()
 
 void initialize_params(ros::NodeHandle nh) 
 {
-    
   // 设置原点坐标系名字
   // TODO: 从yaml 文件中读取该参数  
   odom_frame_id = nh.param<std::string>("odom_frame_id", "/odom");
   optimized_lidar_frame_id = nh.param<std::string>("optimized_lidar_frame_id", "/lidar_opt_odom");
-
   // 关键帧选取 
   keyframe_delta_trans = nh.param<double>("keyframe_delta_trans", 0.5);
   keyframe_delta_angle = nh.param<double>("keyframe_delta_angle", 0.8);
+  windows_size = nh.param<int>("windows_size", 10);
+  FramesWin.resize(windows_size, pcl::PointCloud<PointT>::Ptr(new pcl::PointCloud<PointT>()));
   // 设置匹配方法   默认为ndt    
-  registration = Set_NDTOMP_param(nh);
+  registration = SetNdtParam(nh);
   // 滑动窗口每一帧都初始化
 	for (int i = 0; i < windows_size; i++)
 	{

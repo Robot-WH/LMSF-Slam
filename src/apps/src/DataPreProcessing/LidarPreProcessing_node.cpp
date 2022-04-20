@@ -3,7 +3,6 @@
 #include "liv_slam/cloud_info.h"
 #include "LidarScan_processing.hpp"
 
-
 /**
  * Velodyne点云结构，变量名XYZIRT是每个变量的首字母
 */

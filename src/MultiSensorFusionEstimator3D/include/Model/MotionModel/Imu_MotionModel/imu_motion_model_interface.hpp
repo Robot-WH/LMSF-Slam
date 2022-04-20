@@ -16,10 +16,10 @@
 #include "Sensor/sensor.hpp"
 #include "Estimator/states.hpp"
 
-using namespace Sensor; 
+namespace Slam3D {
 
-namespace Model {
-    class ImuMotionModelInterface {
+    class ImuMotionModelInterface 
+    {
         public:
             ImuMotionModelInterface() {}
             
@@ -34,7 +34,7 @@ namespace Model {
             /**
              * @brief 预测PVQ
              */
-            virtual void ImuPredictPVQ(Estimator::CommonStates & states, 
+            virtual void ImuPredictPVQ(CommonStates & states, 
                                                                      ImuDataConstPtr const& curr_imu, 
                                                                      Eigen::Vector3d const& acc_bias, 
                                                                      Eigen::Vector3d const& gyro_bias) = 0; 

@@ -14,14 +14,13 @@
 #include "Sensor/sensor_process_interface.hpp"
 #include "Estimator/states.hpp"
 
-namespace Estimator {
-
-    using Sensor::SensorProcessInterface;  
+namespace Slam3D {
 
     template<typename _StateType, int _StateDim, typename... _DataTypes>
     class FilterEstimatorBase : public  SensorProcessInterface<_DataTypes...> {
         public:
-            FilterEstimatorBase() {
+            FilterEstimatorBase() 
+            {
                 estimated_state_.Reset();  
                 cov_.setZero();   
             }
@@ -38,6 +37,5 @@ namespace Estimator {
              Eigen::Matrix<double, _StateDim, _StateDim> cov_;  // 协方差矩阵 
             bool initialize_done_ = false;  
     }; // class FilterEstimatorBase 
-}; // namespace Estimator 
-
+}// namespace Estimator 
 #endif 
