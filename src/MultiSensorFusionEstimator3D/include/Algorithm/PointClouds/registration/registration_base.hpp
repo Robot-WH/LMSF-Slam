@@ -19,7 +19,7 @@
 
 namespace Algorithm
 {
-    using Slam3D::FeatureInfo;
+    using Slam3D::FeaturePointCloudContainer;
 
     template<typename _PointType>
     class RegistrationBase
@@ -29,7 +29,7 @@ namespace Algorithm
             using SourceInput = std::pair<std::string, PointCloudConstPtr>;     
         public:
             virtual void SetInputSource(SourceInput const& source_input) = 0;  
-            virtual void SetInputTarget(FeatureInfo<_PointType> const& target_input)  = 0;  
+            virtual void SetInputTarget(FeaturePointCloudContainer<_PointType> const& target_input)  = 0;  
             virtual void Solve(Eigen::Isometry3d &T) = 0; 
     }; // class LineSurfFeatureRegistration 
 } // namespace Algorithm

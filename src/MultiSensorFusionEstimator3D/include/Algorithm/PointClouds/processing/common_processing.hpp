@@ -20,7 +20,7 @@
 namespace Algorithm
 {
     using Slam3D::LidarData; 
-    using Slam3D::FeatureInfo;  
+    using Slam3D::CloudContainer;  
 
     template <typename _PointType>
     using PointCloudType = pcl::PointCloud<_PointType>;
@@ -85,7 +85,7 @@ namespace Algorithm
              * @param[out] data_out 滤波后的结果  
              */        
             void Process(LidarData<_PointType> const& data_in, 
-                FeatureInfo<_PointType> &data_out) override
+                CloudContainer<_PointType> &data_out) override
             {
                 typename pcl::PointCloud<_PointType>::Ptr point_cloud(
                     new pcl::PointCloud<_PointType>());

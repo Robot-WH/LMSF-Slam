@@ -28,8 +28,9 @@ using NdtOmpPtr = std::unique_ptr<NdtOmp<_PointType>>;
  * @brief: 构造 多线程NDT匹配 
  * @details: pclomp
  * @param ndt_resolution ndt网格分辨率
- * @param transformation_epsilon 优化停止步长
- * @param step_size ？？？？？？？？
+ * @param transformation_epsilon 设置NDT迭代收敛阈值，即迭代增量的大小，
+ *                                                                      相当于牛顿法中的delta_x，阈值越小，迭代次数越多；
+ * @param step_size Ndt使用了More-Thuente线性搜索求解位姿增量，这里设置搜索的步长
  * @param maximum_iterations 最大优化迭代数量 
  * @param num_threads 线程数量
  * @param nn_search_method 近邻搜索算法 

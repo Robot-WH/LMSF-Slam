@@ -1,18 +1,18 @@
 cmake_minimum_required(VERSION 3.0.2)
 project(MultiSensorFusionEstimator3D)
 
-# set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 14)
 # set(CMAKE_CXX_FLAGS_RELEASE "-Wall -g")
 # set(CMAKE_BUILD_TYPE Release)   # Debug
 set(CMAKE_BUILD_TYPE "Release")
-set(CMAKE_CXX_FLAGS "-std=c++11")
-set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -g")
+# set(CMAKE_CXX_FLAGS "-std=c++11")
+# set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -g")
 
 find_package(Boost REQUIRED COMPONENTS thread)
 find_package(Boost REQUIRED COMPONENTS timer)
 find_package(Ceres REQUIRED)
 find_package(PCL 1.7 REQUIRED)
-find_package(G2O REQUIRED)
+# find_package(G2O REQUIRED)
 find_package(Eigen3  REQUIRED)
 find_package(OpenCV 3.0 QUIET)
 find_package(GTSAM REQUIRED QUIET)
@@ -30,47 +30,54 @@ ADD_GLOBAL_INCLUDE_DIR(${CMAKE_CURRENT_SOURCE_DIR}/include/)
 include_directories(
     include 
     ${Boost_INCLUDE_DIRS}
-    ${G2O_INCLUDE_DIR}
+    ${GTSAM_INCLUDE_DIR}
 )
 
-add_library(slam_lib SHARED
+set(ALL_TARGET_LIBRARIES "")
+include(cmake/g2o.cmake)
+
+add_library(base_lib SHARED
     src/parameters.cpp
 )
 
-target_link_libraries(slam_lib 
+target_link_libraries(base_lib 
     ${EIGEN3_LIBRARIES} 
     ${PCL_LIBRARIES} 
     ${CERES_LIBRARIES}
-    ${G2O_LIBRARIES}
-    ${G2O_TYPES_DATA}
-    ${G2O_CORE_LIBRARY}
-    ${G2O_STUFF_LIBRARY}
-    ${G2O_SOLVER_PCG}
-    ${G2O_SOLVER_CSPARSE}
-    ${G2O_SOLVER_CHOLMOD}
-    ${G2O_TYPES_SLAM3D}
-    ${G2O_TYPES_SLAM3D_ADDONS}
+    ${ALL_TARGET_LIBRARIES}
+    ${GLOG_LIBRARIES}
+    gtsam
 )
 
-ADD_GLOBAL_LIBRARY(slam_lib)
-
-add_executable(test_feature_registration
-    src/test/registration/feature_registration_test.cpp
-)
-# add_dependencies(OldPointCloudProcess ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(test_feature_registration
-    ${PCL_LIBRARIES}
-    slam_lib
+add_library(backend_lib SHARED
+    src/BackEnd/GraphOptimization/graph_optimization_g2o.cpp
+    src/BackEnd/GraphOptimization/graph_optimization_gtsam.cpp
 )
 
-add_executable(test_handeye_calib
-    src/test/handeye_calib_test.cpp
+target_link_libraries(backend_lib 
+    base_lib
 )
-# add_dependencies(OldPointCloudProcess ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(test_handeye_calib
-    ${PCL_LIBRARIES}
-    slam_lib
-)
+
+ADD_GLOBAL_LIBRARY(base_lib)
+ADD_GLOBAL_LIBRARY(backend_lib)
+
+# add_executable(test_feature_registration
+#     src/test/registration/feature_registration_test.cpp
+# )
+# # add_dependencies(OldPointCloudProcess ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+# target_link_libraries(test_feature_registration
+#     ${PCL_LIBRARIES}
+#     base_lib
+# )
+
+# add_executable(test_handeye_calib
+#     src/test/handeye_calib_test.cpp
+# )
+# # add_dependencies(OldPointCloudProcess ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+# target_link_libraries(test_handeye_calib
+#     ${PCL_LIBRARIES}
+#     base_lib
+# )
 
 
 

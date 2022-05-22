@@ -11,7 +11,7 @@
 #ifndef _POSITION_CORRECTION_HPP_
 #define _POSITION_CORRECTION_HPP_
 
-#include "utility.hpp"
+#include <eigen3/Eigen/Dense>
 #include "Estimator/Correction/eskf_corrector.hpp"
 #include "Estimator/Math/jacobian_state_with_error.hpp"
 

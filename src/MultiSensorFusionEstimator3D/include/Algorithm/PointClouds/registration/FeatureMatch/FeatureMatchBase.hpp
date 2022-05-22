@@ -43,5 +43,4 @@ namespace Algorithm
                 source_points_ = source_ptr;
             } 
     };
-
 }

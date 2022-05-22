@@ -18,7 +18,7 @@
 
 namespace Algorithm {
     using Slam3D::LidarData;
-    using Slam3D::FeatureInfo;
+    using Slam3D::CloudContainer;
     /**
      * @brief: 点云处理基类  
      */    
@@ -35,7 +35,7 @@ namespace Algorithm {
              * @param data_out 输出结果 
              */            
             virtual void Process(LidarData<_InPointT> const& data_in,
-                FeatureInfo<_OutPointT> &data_out) = 0;  
+                CloudContainer<_OutPointT> &data_out) = 0;  
     };
 }
 #endif

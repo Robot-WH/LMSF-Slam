@@ -1,4 +1,5 @@
 multiSensorFusion_slam:
+  project_path: "/home/lwh/code/lwh_ws-master/src/liv_slam-master"
   config_file: "/home/lwh/code/lwh_ws-master/src/liv_slam-master/config/MultiSensorSystem/multi_system.yaml"
   lidar_num: 1
   lidar:

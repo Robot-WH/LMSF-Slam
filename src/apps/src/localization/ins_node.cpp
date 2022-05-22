@@ -102,7 +102,7 @@ void Process()
     while (true) 
     {   
         // 如果有数据容器非空  那么进行处理 
-        if(!imu_buf.empty()||!gnss_buf.empty()) 
+        if(!imu_buf.empty() || !gnss_buf.empty()) 
         {
             uint8_t sensor_id = 0;
             double earliest_time = numeric_limits<double>::max();  

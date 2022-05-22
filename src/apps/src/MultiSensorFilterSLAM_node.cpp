@@ -15,19 +15,12 @@
 #include "Common/parameters.h"
 #include "Common/keyframe.hpp"
 #include "Common/data_manager.hpp"
-#include "Algorithm/PointClouds/processing/common_processing.hpp"
-#include "Algorithm/PointClouds/processing/deskew/deskew_base.hpp"
-#include "Algorithm/PointClouds/processing/Preprocess/RotaryLidar_preprocessing.hpp"
-#include "Estimator/estimator/MultiLidar/MultiLidar_estimator_base.hpp"
-// #include "Estimator/estimator/MultiLidar/Direct_MultiLidar_estimator.hpp"
-#include "Estimator/estimator/MultiLidar/MultiLidar_estimator.hpp"
-#include <message_filters/sync_policies/approximate_time.h>
-#include <message_filters/subscriber.h>
-#include "factory/estimator/multiLidar_estimator/multiLidarEstimator_factory.hpp"
+#include "factory/System/ML_SystemFactory.hpp"
 
 using namespace std;
 using namespace Algorithm;  
 using namespace Slam3D;  
+using namespace common; 
 
 using PointT = pcl::PointXYZI;
 using PointCloudConstPtr = pcl::PointCloud<PointT>::ConstPtr;  
@@ -45,12 +38,9 @@ string public_topic = "undistortion_pointcloud";
 std::string odom_frame = "odom";
 
 std::queue<MultiLidarData<PointT>> all_cloud_buf;    // 原始点云缓存 
-std::queue<MultiLidarData<PointT>> undistorted_cloud_buf;    // 去除畸变后的点云缓存 
-std::mutex m_preprocess, m_estimate;
+std::mutex m_estimate;
 
-std::unique_ptr<RotaryLidarPreProcess<PointT>> pre_processor;  // 预处理器  
-std::unique_ptr<MultiLidarEstimatorBase<PointT>> estimator;             // 估计器
-std::unique_ptr<ExternalSensorDeskewBase> deskew;   // 畸变去除器 
+std::unique_ptr<MultiLidarSystem<PointT, PointT>> System;             // 估计器
 
 ros::Publisher pubUndistortPoints;  
 std::vector<ros::Publisher> pubLidarFiltered;    // 发布每个激光滤波后的点   直接法时使用 
@@ -59,6 +49,9 @@ std::vector<ros::Publisher> pubLidarSurf;    // 发布每个激光提取的平�
 std::vector<ros::Publisher> pubLocalMapFiltered;    // 发布每个激光滤波后的点   直接法时使用 
 std::vector<ros::Publisher> pubLocalMapEdge;    // 发布每个激光提取的边缘特征
 std::vector<ros::Publisher> pubLocalMapSurf;    // 发布每个激光提取的平面特征
+ros::Publisher markers_pub; // 可视化
+ros::ServiceServer save_data_server;   // 数据保存服务
+ros::ServiceServer save_map_server;  // 地图保存服务 
 // 发布话题名称  
 std::vector<std::string> pubLidarFiltered_topic = { "filtered_lidar_0", "filtered_lidar_1"};
 std::vector<std::string> pubLidarEdge_topic = { "lidar_edge_0", "lidar_edge_1"};
@@ -73,30 +66,23 @@ void InitParam(ros::NodeHandle &n)
     config_path = RosReadParam<string>(n, "config_path");  
     NUM_OF_LIDAR = RosReadParam<int>(n, "lidar_num");  
     // 读取激光话题 
-    for (uint16_t i = 0; i < NUM_OF_LIDAR; i++)
-    {
+    for (uint16_t i = 0; i < NUM_OF_LIDAR; i++) {
         lidar_topic_container.push_back(RosReadParam<string>(n, lidar_topic_names[i]));  
     }
-    MultiLidarEstimatorFactory<PointT, PointT> estimator_factory; 
-    estimator = estimator_factory.Create(config_path);   // 使用工厂函数构造估计器  
-    // deskew = std::unique_ptr<DeskewBase>(new DeskewBase(SCAN_PERIOD_));  
-    std::cout<<common::GREEN<<"estimator create done! "<<common::RESET<<std::endl;
-    // 建立预处理器  
-    float SCAN_PERIOD = 0.1;
-    int SCAN = 64;  
-    pre_processor = std::unique_ptr<RotaryLidarPreProcess<PointT>>(
-            new RotaryLidarPreProcess<PointT>(SCAN_PERIOD));  
-    if (estimator == nullptr)
-    {
-        std::cout<<common::RED<<"Estimator construct failure!"<<std::endl;
-    }
-    else 
-    {
-        std::cout<<common::GREEN<<"Estimator construct success!"<<std::endl;
+    MultiLidarSystemFactory<PointT, PointT> System_factory; 
+    System = System_factory.Create(config_path);   // 使用工厂函数构造估计器  
+    // deskew = std::unique_ptr<DeskewBase>(new DeskewBase(SCAN_PERIOD_));      
+    if (System == nullptr) {
+        std::cout<<common::RED<<"System construct failure!"<<std::endl;
+    } else {
+        std::cout<<common::GREEN<<"System construct success!"<<std::endl;
     }
 }
 
-void initRosPub(ros::NodeHandle &private_nh)
+bool SaveDataService(liv_slam::SaveDataRequest& req, liv_slam::SaveDataResponse& res);
+bool SaveMapService(liv_slam::SaveMapRequest& req, liv_slam::SaveMapResponse& res);
+
+void RosInit(ros::NodeHandle &private_nh)
 {
     for (uint16_t i = 0; i < NUM_OF_LIDAR; i++)
     {
@@ -114,6 +100,23 @@ void initRosPub(ros::NodeHandle &private_nh)
         pub = private_nh.advertise<sensor_msgs::PointCloud2>(pubLocalMapSurf_topic[i], 10); 
         pubLocalMapSurf.push_back(pub);  
     }
+    markers_pub = private_nh.advertise<visualization_msgs::MarkerArray>("/graph_markers", 10);        // 可视化
+    save_data_server = private_nh.advertiseService("/SaveGraph", &SaveDataService);
+    save_map_server = private_nh.advertiseService("/liv_slam/save_map", &SaveMapService);
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+bool SaveDataService(liv_slam::SaveDataRequest& req, liv_slam::SaveDataResponse& res) 
+{
+    std::string directory = req.destination;
+    System->SavePoseGraph();  
+    std::cout<<"Save Graph Data success! path: "<< directory <<std::endl;
+    res.success = true; 
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+bool SaveMapService(liv_slam::SaveMapRequest& req, liv_slam::SaveMapResponse& res) 
+{
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -132,7 +135,7 @@ pcl::PointCloud<PointT> getCloudFromMsg(const sensor_msgs::PointCloud2ConstPtr &
  * @param cloud0_msg lidar_topic_container[0] 话题对应的点云
  * @param cloud1_msg lidar_topic_container[1] 话题对应的点云
  */
-void dataProcessCallback_2(const sensor_msgs::PointCloud2ConstPtr &cloud0_msg,
+void dataProcessCallbackTwo(const sensor_msgs::PointCloud2ConstPtr &cloud0_msg,
                          const sensor_msgs::PointCloud2ConstPtr &cloud1_msg)
 {
     MultiLidarData<PointT> data;   
@@ -142,163 +145,56 @@ void dataProcessCallback_2(const sensor_msgs::PointCloud2ConstPtr &cloud0_msg,
     data.all_lidar_data.emplace_back(0, std::move(one_lidar_data));  
     one_lidar_data.point_cloud = getCloudFromMsg(cloud1_msg); 
     data.all_lidar_data.emplace_back(1, std::move(one_lidar_data));  
-    m_preprocess.lock();
+    m_estimate.lock();
     all_cloud_buf.push(std::move(data));  
-    m_preprocess.unlock();
+    m_estimate.unlock();
 }
 
 // 单激光的回调  
-void dataProcessCallback_1(const sensor_msgs::PointCloud2ConstPtr &cloud0_msg)
+void dataProcessCallbackOne(const sensor_msgs::PointCloud2ConstPtr &cloud0_msg)
 {
     MultiLidarData<PointT> data;   
     data.timestamp = cloud0_msg->header.stamp.toSec();
     LidarData<PointT> one_lidar_data;
     one_lidar_data.point_cloud = getCloudFromMsg(cloud0_msg); 
     data.all_lidar_data.emplace_back(0, std::move(one_lidar_data));  
-    m_preprocess.lock();
+    m_estimate.lock();
     all_cloud_buf.push(std::move(data));  
-    m_preprocess.unlock();
+    m_estimate.unlock();
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/**
- * @brief: 预处理
- * @details:  主要是进行畸变去去除  
- */
-void preprocess()
-{
-    while (1)
-    {
-        m_preprocess.lock();
-        // 激光容器非空 
-        if (!all_cloud_buf.empty())
-        {
-            MultiLidarData<PointT> data = all_cloud_buf.front();
-            all_cloud_buf.pop();  
-            // 如果有数据    则进行数据处理
-            // 1、给出时间戳   2、去除畸变  
-            //  openmp加速  
-            #pragma omp parallel for num_threads(NUM_OF_LIDAR)
-            for (int i = 0; i < data.all_lidar_data.size(); i++)
-            {   
-                // 先判断是否有时间戳信息           
-                pre_processor->Process(data.all_lidar_data[i].second);       
-                // 去除畸变  
-            }
-            m_estimate.lock();
-            undistorted_cloud_buf.push(std::move(data));
-            m_estimate.unlock();     
-            // cout<<"process MultiLidarData, lidar num: "<<data.lidar_data_container_.size()<<std::endl;
-        }
-        m_preprocess.unlock();
-        std::this_thread::sleep_for(std::chrono::milliseconds(20));
-    }
-}   
 
 /**
- * @brief:  去除畸变后 对点云数据计算里程计    
+ * @brief:  送入算法系统
  */
 void Estimate() 
 {
     while(1)
     {
         m_estimate.lock(); 
-        if (!undistorted_cloud_buf.empty()) 
+        if (!all_cloud_buf.empty()) 
         {
-            MultiLidarData<PointT> data = std::move(undistorted_cloud_buf.front());
-            undistorted_cloud_buf.pop();             
-            estimator->Process(data);              
+            MultiLidarData<PointT> data = all_cloud_buf.front();   // 获取多激光数据 
+            all_cloud_buf.pop();             
+            System->Process(data);     // 传入 
         }
         m_estimate.unlock();     
         std::this_thread::sleep_for(std::chrono::milliseconds(20));
     }
 }
 
-// 读取估计结果的线程 
-void processResult()
-{
-    while(1)
-    {
-        MultiLidarResultInfo<PointT> result;     // 本次读取的结果 
-        // 获取里程计的结果以及处理完成的点云进行发布
-        if (DataManager::GetInstance().GetData<MultiLidarResultInfo<PointT>>("frontend_info", result))
-        {  
-            // 遍历全部激光雷达  
-            for(auto curr_lidar = result.begin(); curr_lidar != result.end(); curr_lidar++)
-            {
-                uint8_t id = curr_lidar->first;  
-                LidarResultInfo<PointT>& curr_lidar_res_info = curr_lidar->second;     
-                ros::Time stamp = ros::Time(curr_lidar_res_info.time_stamps_);  
-                // 发布点云
-                for(auto feature = curr_lidar_res_info.feature_point_.begin(); 
-                        feature !=  curr_lidar_res_info.feature_point_.end(); feature++)
-                {
-                    // std::cout<<"name: "<<feature->first<<std::endl;
-                    if (feature->first == "loam_edge")   
-                    {
-                        publishCloud( &pubLidarEdge[id],    // 发布该点云的话题 
-                                                        feature->second,   // 边缘特征   
-                                                        stamp, lidar_frame_names[id]);     
-                    }
-                    else if (feature->first == "loam_surf")
-                    {
-                        publishCloud( &pubLidarSurf[id],    // 发布该点云的话题 
-                                                        feature->second,   // 点云数据   
-                                                        stamp, lidar_frame_names[id]);     
-                    }
-                    else if (feature->first == "filtered")     // 滤波后的
-                    {
-                        publishCloud( &pubLidarFiltered[id],    // 发布该点云的话题 
-                                                        feature->second,   // 点云数据   
-                                                        stamp, lidar_frame_names[id]);     
-                    }
-                }
-                // 发布local map 
-                for(auto iter = curr_lidar_res_info.local_map_.begin(); 
-                        iter !=  curr_lidar_res_info.local_map_.end(); iter++)
-                {
-                    // std::cout<<"name: "<<iter->first<<std::endl;
-                    if (iter->first == "loam_edge")   
-                    {
-                        publishCloud( &pubLocalMapEdge[id],    // 发布该点云的话题 
-                                                        iter->second,   // 边缘特征   
-                                                        stamp, odom_frame);     
-                    }
-                    else if (iter->first == "loam_surf")
-                    {
-                        publishCloud( &pubLocalMapSurf[id],    // 发布该点云的话题 
-                                                        iter->second,   // 点云数据   
-                                                        stamp, odom_frame);     
-                    }
-                    else if (iter->first == "filtered")     // 滤波后的
-                    {
-                        publishCloud( &pubLocalMapFiltered[id],    // 发布该点云的话题 
-                                                        iter->second,   // 点云数据   
-                                                        stamp, odom_frame);     
-                    }
-                }
-                // std::cout<<"pose: "<<std::endl<<result.pose_[i]<<std::endl;
-                Eigen::Vector3f p(curr_lidar_res_info.pose_.block<3, 1>(0, 3));  
-                Eigen::Quaternionf quat(curr_lidar_res_info.pose_.block<3, 3>(0, 0));
-                quat.normalize();
-                // 发布tf 
-                PublishTF(p, quat, stamp, odom_frame, lidar_frame_names[id]); 
-
-            }
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
-    }; 
-}
+Eigen::Isometry3d trans_odom2map = Eigen::Isometry3d::Identity();
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/**
+ * @brief: 根据图数据 创建可视化的图结构 
+ */
 template<typename _PointT>
-visualization_msgs::MarkerArray createMarkerArray(const ros::Time& stamp,
-    std::deque<Slam3D::KeyFrame<_PointT>> keyframe_database, 
-    std::deque<Slam3D::KeyFrame<_PointT>> local_keyframe,
-    std::vector<Slam3D::KeyFrame<_PointT>> new_keyframes) 
+visualization_msgs::MarkerArray createMarkerArray(KeyFrameInfo<PointT> const& info) 
 {
     visualization_msgs::MarkerArray markers;
     markers.markers.resize(4);
+    ros::Time stamp(info.time_stamps_);  
     // node markers    位姿节点
     visualization_msgs::Marker& traj_marker = markers.markers[0];
     traj_marker.header.frame_id = "map";
@@ -308,15 +204,21 @@ visualization_msgs::MarkerArray createMarkerArray(const ros::Time& stamp,
     traj_marker.type = visualization_msgs::Marker::SPHERE_LIST;
     traj_marker.pose.orientation.w = 1.0;
     traj_marker.scale.x = traj_marker.scale.y = traj_marker.scale.z = 0.5;
-      // 数量
-    traj_marker.points.resize(keyframe_database.size()+local_keyframe.size()+new_keyframes.size());
+
+    // std::cout<<"info.keyframe_database_.size(): "<<info.keyframe_database_.size()<<std::endl;
+    // std::cout<<"info.local_opt_keyframes_.size(): "<<info.local_opt_keyframes_.size()<<std::endl;
+    // std::cout<<"info.new_keyframes_.size(): "<<info.new_keyframes_.size()<<std::endl;
+    // 数量
+    traj_marker.points.resize(info.vertex_database_.size() + 
+                                                            info.new_keyframes_.size());
     // 颜色
-    traj_marker.colors.resize(keyframe_database.size()+local_keyframe.size()+new_keyframes.size());
+    traj_marker.colors.resize(info.vertex_database_.size() + 
+                                                            info.new_keyframes_.size());
     // 新增位姿节点
-    for(int i=0; i<new_keyframes.size(); i++) 
+    for(int i=0; i<info.new_keyframes_.size(); i++) 
     {
         // 设置位置
-        Eigen::Vector3d pos = new_keyframes[i]->correct_pose_.translation();
+        Eigen::Vector3d pos = (trans_odom2map * info.new_keyframes_[i].odom_).translation();
         traj_marker.points[i].x = pos.x();
         traj_marker.points[i].y = pos.y();
         traj_marker.points[i].z = pos.z();
@@ -326,34 +228,19 @@ visualization_msgs::MarkerArray createMarkerArray(const ros::Time& stamp,
         traj_marker.colors[i].b = 0.0;
         traj_marker.colors[i].a = 1.0;
     }   
-    // 滑动窗口节点位姿
-    // 优化后位姿节点 
-    for (int i = 0; i < local_keyframe.size(); i++) 
+    // 关键帧数据库的位姿节点 
+    for (int i = 0; i < info.vertex_database_.size(); i++) 
     {
         // 设置位置
-        Eigen::Vector3d pos = local_keyframe.at(i)->correct_pose_.translation();
-        traj_marker.points[new_keyframes.size()+i].x = pos.x();
-        traj_marker.points[new_keyframes.size()+i].y = pos.y();
-        traj_marker.points[new_keyframes.size()+i].z = pos.z();
+        Eigen::Vector3d pos = info.vertex_database_[i].pose_.translation();
+        traj_marker.points[info.new_keyframes_.size() + i].x = pos.x();
+        traj_marker.points[info.new_keyframes_.size() + i].y = pos.y();
+        traj_marker.points[info.new_keyframes_.size() + i].z = pos.z();
         // 颜色
-        traj_marker.colors[new_keyframes.size()+i].r = 0.0;
-        traj_marker.colors[new_keyframes.size()+i].g = 1.0;
-        traj_marker.colors[new_keyframes.size()+i].b = 0.0;
-        traj_marker.colors[new_keyframes.size()+i].a = 1.0;
-    }  
-    // 优化后位姿节点 
-    for (int i=0; i<keyframe_database.size(); i++) 
-    {
-        // 设置位置
-        Eigen::Vector3d pos = keyframe_database[i]->correct_pose_.translation();
-        traj_marker.points[new_keyframes.size()+local_keyframe.size()+i].x = pos.x();
-        traj_marker.points[new_keyframes.size()+local_keyframe.size()+i].y = pos.y();
-        traj_marker.points[new_keyframes.size()+local_keyframe.size()+i].z = pos.z();
-        // 颜色
-        traj_marker.colors[new_keyframes.size()+local_keyframe.size()+i].r = 0;
-        traj_marker.colors[new_keyframes.size()+local_keyframe.size()+i].g = 0;
-        traj_marker.colors[new_keyframes.size()+local_keyframe.size()+i].b = 1.0;
-        traj_marker.colors[new_keyframes.size()+local_keyframe.size()+i].a = 1.0;
+        traj_marker.colors[info.new_keyframes_.size()+i].r = 0;
+        traj_marker.colors[info.new_keyframes_.size()+i].g = 0;
+        traj_marker.colors[info.new_keyframes_.size()+i].b = 1.0;
+        traj_marker.colors[info.new_keyframes_.size()+i].a = 1.0;
     }   
     // edge markers  边
     visualization_msgs::Marker& edge_marker = markers.markers[2];
@@ -364,20 +251,22 @@ visualization_msgs::MarkerArray createMarkerArray(const ros::Time& stamp,
     edge_marker.type = visualization_msgs::Marker::LINE_LIST;
     edge_marker.pose.orientation.w = 1.0;
     edge_marker.scale.x = 0.1;
-    // 这里要注意 ！！！！！！！！！！！！！！！！！
-    edge_marker.points.resize(keyframe_database.size() * 2 * 2 * 2 
-                                                            + local_keyframe.size() * 2 * 2 * 2); // + Loops.size() * 2);
-    edge_marker.colors.resize(keyframe_database.size() * 2 * 2 * 2 
-                                                            + local_keyframe.size() * 2 * 2 * 2); // + Loops.size() * 2);
+    // 这里要注意 ！！！！
+    edge_marker.points.resize(info.edge_database_.size() * 2); 
+    edge_marker.colors.resize(info.edge_database_.size() * 2); 
     int i=0;
 
-    for (int num = 0; num < keyframe_database.size(); num++) 
+    for (int num = 0; num < info.edge_database_.size(); num++) 
     {
         // 里程计边    Pc
-        Eigen::Vector3d pt1 = keyframe_database[num]->correct_pose_.translation();
+        // Eigen::Vector3d pt1 = info.keyframe_database_[num].correct_pose_.translation();
+        // // Twc*Tlc^-1 = Twl
+        // Eigen::Vector3d pt2 = (info.keyframe_database_[num].correct_pose_ 
+        //     * info.keyframe_database_[num].between_constraint_.inverse()).translation();
+        Eigen::Vector3d pt1 = info.vertex_database_[info.edge_database_[num].link_id_.first].pose_.translation();
         // Twc*Tlc^-1 = Twl
-        Eigen::Vector3d pt2 = (keyframe_database[num]->correct_pose_ 
-                                                        * keyframe_database[num]->between_constraint_.inverse()).translation();
+        Eigen::Vector3d pt2 = (info.vertex_database_[info.edge_database_[num].link_id_.first].pose_
+            * info.edge_database_[num].constraint_).translation();
         // 设置位置关系     每个frame 2个点 
         edge_marker.points[i*2].x = pt1.x();
         edge_marker.points[i*2].y = pt1.y();
@@ -437,76 +326,152 @@ visualization_msgs::MarkerArray createMarkerArray(const ros::Time& stamp,
         //     }
         // }
     }
-    // 局部优化的关键帧约束 
-    for (int num = 0; num < local_keyframe.size(); num++) 
-    {
-        // 里程计边    Pc
-        Eigen::Vector3d pt1 = local_keyframe.at(num)->correct_pose_.translation();
-        // Twc*Tlc^-1 = Twl
-        Eigen::Vector3d pt2 = (local_keyframe.at(num)->correct_pose_
-                                                        * local_keyframe.at(num)->between_constraint_.inverse()).translation();
-        // 设置位置关系     每个frame 2个点 
-        edge_marker.points[i*2].x = pt1.x();
-        edge_marker.points[i*2].y = pt1.y();
-        edge_marker.points[i*2].z = pt1.z();
-        edge_marker.points[i*2 + 1].x = pt2.x();
-        edge_marker.points[i*2 + 1].y = pt2.y();
-        edge_marker.points[i*2 + 1].z = pt2.z();
+    // // 回环检测的边   2个点 
+    // for (auto const& loop:info.loops_)
+    // { 
+    //     Eigen::Vector3d pt1 = info.keyframe_database_[loop.id_1_].correct_pose_.translation(); // 新帧  
+    //     Eigen::Vector3d pt2 = (info.keyframe_database_[loop.id_1_].correct_pose_
+    //                                                     * loop.relative_pose_).translation();     // 与新帧闭环的老帧   Twc * Tlc^-1
 
-        edge_marker.colors[i*2].r = 1.0;
-        edge_marker.colors[i*2].g = 2.0;
-        edge_marker.colors[i*2].a = 1.0;
-        edge_marker.colors[i*2 + 1].r = 1.0;
-        edge_marker.colors[i*2 + 1].g = 2.0;
-        edge_marker.colors[i*2 + 1].a = 1.0;
-        i++;
-        
-        // if (enable_GNSS_optimize)
-        // {
-        //     // GNSS 先验边     2个点  
-        //     if (sliding_windows.at(num)->GNSS_Valid) 
-        //     {
-        //         Eigen::Vector3d pt1 = sliding_windows.at(num)->Pose.translation();  
-        //         Eigen::Vector3d pt2 = sliding_windows.at(num)->utm_coord;
+    //     edge_marker.points[i*2].x = pt1.x();
+    //     edge_marker.points[i*2].y = pt1.y();
+    //     edge_marker.points[i*2].z = pt1.z();
+    //     edge_marker.points[i*2 + 1].x = pt2.x();
+    //     edge_marker.points[i*2 + 1].y = pt2.y();
+    //     edge_marker.points[i*2 + 1].z = pt2.z();
 
-        //         edge_marker.points[i*2].x = pt1.x();
-        //         edge_marker.points[i*2].y = pt1.y();
-        //         edge_marker.points[i*2].z = pt1.z()+1;
-        //         edge_marker.points[i*2 + 1].x = pt2.x();
-        //         edge_marker.points[i*2 + 1].y = pt2.y();
-        //         edge_marker.points[i*2 + 1].z = pt2.z();
+    //     edge_marker.colors[i*2].r = 2.0;
+    //     edge_marker.colors[i*2].a = 2.0;
+    //     edge_marker.colors[i*2 + 1].r = 2.0;
+    //     edge_marker.colors[i*2 + 1].a = 2.0;
+    //     i++;
+    // }
+    // sphere
+    visualization_msgs::Marker& sphere_marker = markers.markers[3];
+    sphere_marker.header.frame_id = "map";
+    sphere_marker.header.stamp = stamp;
+    sphere_marker.ns = "Odom Error";
+    sphere_marker.id = 3;
+    sphere_marker.type = visualization_msgs::Marker::SPHERE;
 
-        //         edge_marker.colors[i*2].r = 1.0;
-        //         edge_marker.colors[i*2].a = 1.0;
-        //         edge_marker.colors[i*2 + 1].r = 1.0;
-        //         edge_marker.colors[i*2 + 1].a = 1.0;
-        //         i++;
-        //     }
-        // }
-        // 地面约束边  
-        // if (enable_planeConstraint_optimize)
-        // {
-        //     if(sliding_windows.at(num)->planeConstraint_Valid) 
-        //     {
-        //         Eigen::Vector3d plane = {pt1[0], pt1[1], 0};
+    Eigen::Vector3d pos = info.new_keyframes_.back().correct_pose_.translation();
+    sphere_marker.pose.position.x = pos.x();
+    sphere_marker.pose.position.y = pos.y();
+    sphere_marker.pose.position.z = pos.z();
 
-        //         edge_marker.points[i*2].x = pt1.x();
-        //         edge_marker.points[i*2].y = pt1.y();
-        //         edge_marker.points[i*2].z = pt1.z();
-        //         edge_marker.points[i*2 + 1].x = plane.x();
-        //         edge_marker.points[i*2 + 1].y = plane.y();
-        //         edge_marker.points[i*2 + 1].z = plane.z()-1;
+    sphere_marker.pose.orientation.w = 1.0;
+    sphere_marker.scale.x = sphere_marker.scale.y = sphere_marker.scale.z = 100;
 
-        //         edge_marker.colors[i*2].r = 1.0;
-        //         edge_marker.colors[i*2].a = 2.0;
-        //         edge_marker.colors[i*2 + 1].r = 1.0;
-        //         edge_marker.colors[i*2 + 1].a = 2.0;
-        //         i++;
-        //     }
-        // }
-    }
+    sphere_marker.color.r = 1.0;
+    sphere_marker.color.a = 0.3;
 
     return markers;
+}
+// 读取估计结果的线程 
+void processResult()
+{
+    while(1)
+    {
+        MultiLidarResultInfo<PointT> result;     // 本次读取的结果 
+        // odom->map的变换
+        DataManager::GetInstance().GetData("odom_to_map", trans_odom2map);
+        // 获取里程计的结果以及处理完成的点云进行发布
+        if (DataManager::GetInstance().GetData<MultiLidarResultInfo<PointT>>("frontend_info", result))
+        {  
+            // 遍历全部激光雷达  
+            for (auto curr_lidar = result.begin(); curr_lidar != result.end(); curr_lidar++)
+            {
+                uint8_t id = curr_lidar->first;  
+                LidarResultInfo<PointT>& curr_lidar_res_info = curr_lidar->second;     
+                ros::Time stamp = ros::Time(curr_lidar_res_info.time_stamps_);  
+                // 发布点云
+                for(auto feature = curr_lidar_res_info.feature_point_.begin(); 
+                        feature !=  curr_lidar_res_info.feature_point_.end(); feature++)
+                {
+                    // std::cout<<"name: "<<feature->first<<std::endl;
+                    if (feature->first == "loam_edge")   
+                    {
+                        publishCloud( &pubLidarEdge[id],    // 发布该点云的话题 
+                                                        feature->second,   // 边缘特征   
+                                                        stamp, lidar_frame_names[id]);     
+                    }
+                    else if (feature->first == "loam_surf")
+                    {
+                        publishCloud( &pubLidarSurf[id],    // 发布该点云的话题 
+                                                        feature->second,   // 点云数据   
+                                                        stamp, lidar_frame_names[id]);     
+                    }
+                    else if (feature->first == POINTS_PROCESSED_NAME)    
+                    {
+                        if (pubLidarFiltered[id].getNumSubscribers() != 0) 
+                        {
+                            publishCloud(&pubLidarFiltered[id],    // 发布该点云的话题 
+                                feature->second,   // 点云数据   
+                                stamp, lidar_frame_names[id]);     
+                        }
+                    }
+                }
+                // // 发布local map 
+                // for(auto iter = curr_lidar_res_info.local_map_.begin(); 
+                //         iter !=  curr_lidar_res_info.local_map_.end(); iter++)
+                // {
+                //     // std::cout<<"name: "<<iter->first<<std::endl;
+                //     if (iter->first == "loam_edge")   
+                //     {
+                //         publishCloud( &pubLocalMapEdge[id],    // 发布该点云的话题 
+                //                                         iter->second,   // 边缘特征   
+                //                                         stamp, odom_frame);     
+                //     }
+                //     else if (iter->first == "loam_surf")
+                //     {
+                //         publishCloud( &pubLocalMapSurf[id],    // 发布该点云的话题 
+                //                                         iter->second,   // 点云数据   
+                //                                         stamp, odom_frame);     
+                //     }
+                //     else if (iter->first == "filtered")     // 滤波后的
+                //     {
+                //         publishCloud( &pubLocalMapFiltered[id],    // 发布该点云的话题 
+                //                                         iter->second,   // 点云数据   
+                //                                         stamp, odom_frame);     
+                //     }
+                // }
+                // std::cout<<"pose: "<<std::endl<<result.pose_[i]<<std::endl;
+                // 发过来的pose是相对于odom系的   将他转到map系下 
+                curr_lidar_res_info.pose_ = trans_odom2map.matrix().cast<float>() 
+                                                                            * curr_lidar_res_info.pose_; 
+                Eigen::Vector3f p(curr_lidar_res_info.pose_.block<3, 1>(0, 3));  
+                Eigen::Quaternionf quat(curr_lidar_res_info.pose_.block<3, 3>(0, 0));
+                quat.normalize();
+                // 发布tf 
+                PublishTF(p, quat, stamp, "map", lidar_frame_names[id]); 
+                //PublishTF(p, quat, stamp, odom_frame, lidar_frame_names[id]); 
+            }
+        }
+        // 图优化可视化
+        if (markers_pub.getNumSubscribers()) 
+        {
+            // 读取关键帧信息 
+            KeyFrameInfo<PointT> info;
+            if (DataManager::GetInstance().GetData<KeyFrameInfo<PointT>>("keyframes_info", info)) 
+            {
+                // 发布 markers
+                auto markers = createMarkerArray<PointT>(info);
+                markers_pub.publish(markers);
+                
+                // Eigen::Vector3f p(trans_odom2map.inverse().cast<float>().translation());  
+                // Eigen::Quaternionf quat(trans_odom2map.inverse().cast<float>().rotation());
+                // quat.normalize();
+                // // 发布tf 
+                // PublishTF(p, quat, ros::Time(info.time_stamps_), odom_frame, "map"); 
+            }
+            else
+            {
+                //std::cout<<common::RED<<"get KeyFrameInfo error"<<common::RESET<<std::endl;
+            }
+        }  
+        
+        std::this_thread::sleep_for(std::chrono::milliseconds(90));
+    }; 
 }
 
 int main(int argc, char **argv)
@@ -515,7 +480,7 @@ int main(int argc, char **argv)
     ros::NodeHandle nh;
     ros::NodeHandle private_nh("~");
     InitParam(nh);  
-    initRosPub(private_nh);  
+    RosInit(private_nh);  
     // ******************************************2个激光雷达的ROS同步设置 
     typedef sensor_msgs::PointCloud2 LidarMsgType;
     typedef message_filters::sync_policies::ApproximateTime<LidarMsgType, LidarMsgType> LidarSyncPolicy;
@@ -527,21 +492,19 @@ int main(int argc, char **argv)
     // for (size_t i = NUM_OF_LIDAR; i < 2; i++) sub_lidar[i] = new LidarSubType(private_nh, CLOUD_TOPIC[0], 1);
     message_filters::Synchronizer<LidarSyncPolicy> *lidar_synchronizer; 
     ros::Subscriber lidar_single;
-    if (NUM_OF_LIDAR == 2)
+    if (NUM_OF_LIDAR == 2)   // 多激光 
     {
         lidar_synchronizer = new message_filters::Synchronizer<LidarSyncPolicy>(
             LidarSyncPolicy(10), *sub_lidar[0], *sub_lidar[1]);
-        lidar_synchronizer->registerCallback(boost::bind(&dataProcessCallback_2, _1, _2));
+        lidar_synchronizer->registerCallback(boost::bind(&dataProcessCallbackTwo, _1, _2));
         pubUndistortPoints = private_nh.advertise<nav_msgs::Odometry>(public_topic, 10); 
     }
 
     if (NUM_OF_LIDAR == 1)  // 单激光  
     {
         std::cout<<"use single lidar, topic is: "<<lidar_topic_container[0]<<std::endl;
-        lidar_single = private_nh.subscribe(lidar_topic_container[0], 100, dataProcessCallback_1);
+        lidar_single = private_nh.subscribe(lidar_topic_container[0], 100, dataProcessCallbackOne);
     }
-    // 启动预处理线程  
-    std::thread preprocess_thread(preprocess);
     // 启动估计线程
     std::thread estimate_thread(Estimate);
     std::thread processResult_thread(processResult);

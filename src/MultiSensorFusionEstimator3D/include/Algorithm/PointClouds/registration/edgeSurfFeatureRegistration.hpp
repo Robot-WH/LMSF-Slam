@@ -19,7 +19,7 @@
 
 namespace Algorithm
 {
-    using Slam3D::FeatureInfo;  
+    using Slam3D::FeaturePointCloudContainer;  
     /**
      * @brief: 基于GN/LM法的边缘/面特征匹配  
      */    
@@ -87,18 +87,16 @@ namespace Algorithm
                 // tt.toc("kdtree "); 
             }
 
-            void SetInputTarget(FeatureInfo<_PointType> const& target_input) override
+            void SetInputTarget(FeaturePointCloudContainer<_PointType> const& target_input) override
             {   
                 // 直接使用点云数据 
-                if (target_input.pointcloud_data_.find(edge_name_) 
-                        != target_input.pointcloud_data_.end())
+                if (target_input.find(edge_name_) != target_input.end())
                 {
-                    edge_point_in_ = target_input.pointcloud_data_.find(edge_name_)->second; 
+                    edge_point_in_ = target_input.find(edge_name_)->second; 
                 }
-                if (target_input.pointcloud_data_.find(surf_name_) 
-                        != target_input.pointcloud_data_.end())
+                if (target_input.find(surf_name_) != target_input.end())
                 {
-                    surf_point_in_ = target_input.pointcloud_data_.find(surf_name_)->second; 
+                    surf_point_in_ = target_input.find(surf_name_)->second; 
                 }
             }
 
@@ -139,18 +137,14 @@ namespace Algorithm
                     // scan-to-map优化
                     // 对匹配特征点计算Jacobian矩阵，观测值为特征点到直线、平面的距离，构建高斯牛顿方程，迭代优化当前位姿，存transformTobeMapped
                     //if (GNOptimization(iterCount) == true)
-                    if (method_ == GN)
-                    {
-                        if (GNOptimization(iterCount) == true) 
-                        {
+                    if (method_ == GN) {
+                        if (GNOptimization(iterCount) == true) {
                             break;              
                         }
-                    } 
-                    else 
-                    {
-                        // LM 法
+                    } else {
+                        if (LMOptimization(iterCount)) {
+                        }
                     }
-
                 }
 
                 T.linear() = q_w_l_.toRotationMatrix();
@@ -333,6 +327,16 @@ namespace Algorithm
                     return true; 
                 }
                 return false; 
+            }
+
+            /**
+             * @brief: 使用LM法进行求解 
+             * @details 四元数 + xyz 优化   
+             * @param {int} iterCount
+             * @return {*}
+             */    
+            bool LMOptimization(int iterCount)
+            {
             }
 
             void pointAssociateToMap(_PointType const *const pi, _PointType *const po)

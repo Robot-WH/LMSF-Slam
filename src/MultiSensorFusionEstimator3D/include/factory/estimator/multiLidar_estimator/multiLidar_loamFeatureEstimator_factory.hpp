@@ -30,10 +30,11 @@ namespace Slam3D {
  * @param _FeatureType 内部得到的特征的类型 
  */    
 template<typename _PointType, typename _FeatureType>
-class LoamFeatureMultiLidarEstimatorFactory : public MultiLidarEstimatorFactoryInterface<_PointType>
+class LoamFeatureMultiLidarEstimatorFactory 
+: public MultiLidarEstimatorFactoryInterface<_PointType, _FeatureType>
 {   
 private:
-    using Base = MultiLidarEstimatorFactoryInterface<_PointType>;
+    using Base = MultiLidarEstimatorFactoryInterface<_PointType, _FeatureType>;
     using TargetType = typename Base::MultiLidarEstimatorPtr;
     // 参数 
     std::string lidar_tracking_mode_;     // loam 或 scan - map  
@@ -85,7 +86,7 @@ public:
 
                 // using RegistrationAdapterType = RegistrationAdapterImpl<
                 //     typename LidarTrackerLocalMap<_FeatureType>::LocalMapInput, 
-                //     Sensor::FeatureInfo<_FeatureType>, RegistrationBase<_FeatureType>>;
+                //     Sensor::CloudContainer<_FeatureType>, RegistrationBase<_FeatureType>>;
                 std::unique_ptr<RegistrationBase<_FeatureType>> registration_ptr;
                 registration_ptr.reset(
                     new CeresEdgeSurfFeatureRegistration<_FeatureType>("loam_edge", "loam_surf")

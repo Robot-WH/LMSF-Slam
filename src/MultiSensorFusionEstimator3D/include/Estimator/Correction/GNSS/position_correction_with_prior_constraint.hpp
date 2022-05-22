@@ -11,7 +11,7 @@
 #ifndef _POSITION_CORRECTION_WITH_PRIOR_CONSTRAINT_HPP_
 #define _POSITION_CORRECTION_WITH_PRIOR_CONSTRAINT_HPP_
 
-#include "utility.hpp"
+#include <eigen3/Eigen/Dense>
 #include "Estimator/Correction/eskf_corrector.hpp"
 #include "Estimator/Correction/GNSS/position_correction.hpp"
 #include "Sensor/Gnss_data.h"

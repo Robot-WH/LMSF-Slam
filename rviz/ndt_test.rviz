@@ -7,6 +7,7 @@ Panels:
         - /Global Options1
         - /TF1/Frames1
         - /PointCloud23/Autocompute Value Bounds1
+        - /MarkerArray1
         - /MarkerArray1/Namespaces1
         - /PointCloud26
         - /PointCloud27
@@ -75,7 +76,7 @@ Visualization Manager:
           Value: true
         lidar_0:
           Value: true
-        odom:
+        map:
           Value: true
         velo_link:
           Value: true
@@ -87,7 +88,7 @@ Visualization Manager:
       Show Axes: true
       Show Names: true
       Tree:
-        odom:
+        map:
           lidar_0:
             {}
       Update Interval: 0
@@ -236,10 +237,11 @@ Visualization Manager:
       Value: false
     - Class: rviz/MarkerArray
       Enabled: true
-      Marker Topic: /hdl_graph_slam/markers
+      Marker Topic: /graph_markers
       Name: MarkerArray
       Namespaces:
-        {}
+        edges: true
+        nodes: true
       Queue Size: 100
       Value: true
     - Alpha: 1
@@ -394,8 +396,8 @@ Visualization Manager:
     - Alpha: 1
       Autocompute Intensity Bounds: false
       Autocompute Value Bounds:
-        Max Value: 5.290132999420166
-        Min Value: -11.232670783996582
+        Max Value: -60.3121337890625
+        Min Value: -79.63922119140625
         Value: true
       Axis: Z
       Channel Name: z
@@ -425,7 +427,7 @@ Visualization Manager:
   Global Options:
     Background Color: 48; 48; 48
     Default Light: true
-    Fixed Frame: odom
+    Fixed Frame: map
     Frame Rate: 30
   Name: root
   Tools:
@@ -448,26 +450,21 @@ Visualization Manager:
   Value: true
   Views:
     Current:
-      Class: rviz/XYOrbit
-      Distance: 49.117706298828125
+      Angle: -1.284999966621399
+      Class: rviz/TopDownOrtho
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
-      Focal Point:
-        X: 1.0851246118545532
-        Y: -14.099157333374023
-        Z: -0.5655639171600342
-      Focal Shape Fixed Size: true
-      Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 1.5697963237762451
+      Scale: 4.205835819244385
       Target Frame: lidar_0
-      Value: XYOrbit (rviz)
-      Yaw: 4.717235088348389
+      Value: TopDownOrtho (rviz)
+      X: -88.25040435791016
+      Y: 12.251158714294434
     Saved: ~
 Window Geometry:
   Displays:

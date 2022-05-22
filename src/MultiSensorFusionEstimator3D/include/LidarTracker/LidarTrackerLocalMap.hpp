@@ -25,6 +25,7 @@ namespace Slam3D {
      * @brief: tracker LoclMap匹配模式框架
      * @details:  适应多种Local Map构造方式 ， 以及多种匹配方式  a. 特征ICP  b. NDT/GICP
      * @param _PointType 使用的特征点的类型  
+     * @param _RegistrationType 匹配算法的基类type 
      */    
     template<typename _PointType, typename _RegistrationType>
     class LidarTrackerLocalMap : public LidarTrackerBase<_PointType>
@@ -34,9 +35,9 @@ namespace Slam3D {
             using PointCloudConstPtr = typename pcl::PointCloud<_PointType>::ConstPtr;  
             using LocalMapInput = std::pair<std::string, PointCloudConstPtr>;      // Local map 类型 
             using RegistrationAdapterPtr = std::unique_ptr<RegistrationAdapterBase< 
-                LocalMapInput, FeatureInfo<_PointType>>>;
+                LocalMapInput, FeaturePointCloudContainer<_PointType>>>;
             using LocalMapContainer = std::unordered_map<std::string, 
-                std::unique_ptr<PointCloudLocalMapBase<_PointType>>>;
+                std::unique_ptr<PointCloudLocalMapBase<_PointType>>>;  // <local map id, 对象指针>
             using LocalMapPointsContainer = std::unordered_map<std::string, PointCloudConstPtr>;
             enum LocalMapUpdataType
             {
@@ -51,7 +52,7 @@ namespace Slam3D {
             // 匹配算法 
             // 输入源点云类型：LocalMapInput          输入目标点云类型：FeatureInfo<_PointType>
             RegistrationAdapterPtr registration_ptr_;  
-            LocalMapContainer local_map_;  // Local map 更新方法
+            LocalMapContainer local_map_;  // 每一种特征都会维护一个local map 
             Eigen::Isometry3d prev_pose_;  // 上一帧的位姿
             Eigen::Isometry3d curr_pose_;   // 上一帧的位姿
             Eigen::Isometry3d predict_trans_;  // 预测位姿
@@ -90,27 +91,32 @@ namespace Slam3D {
              */            
             void SetRegistration(std::unique_ptr<_RegistrationType> registration_ptr)
             {
-                registration_ptr_.reset(new RegistrationAdapterImpl< 
-                    LocalMapInput, FeatureInfo<_PointType>, _RegistrationType>(std::move(registration_ptr)));  
+                registration_ptr_.reset(
+                    new RegistrationAdapterImpl< LocalMapInput, FeaturePointCloudContainer<_PointType>, 
+                                                                                    _RegistrationType>(std::move(registration_ptr)));  
             }
 
             /////////////////////////////////////////////////////////////////////////////////////////////////////////////
             /**
              * @brief: 激光tracker 求解 
              * @details:  求解出当前激光与上一帧激光数据的增量  
+             * @param[in] data 特征点云数据
+             * @param[in] timestamp 时间戳  
              * @param[out] deltaT 输出的增量
              */            
-            virtual void Solve(FeatureInfo<_PointType> const& data, Eigen::Isometry3d &deltaT) override
+            virtual void Solve(FeaturePointCloudContainer<_PointType> const& data, 
+                                                    double const& timestamp,
+                                                    Eigen::Isometry3d &deltaT) override
             {
                 // local map 初始化
                 if (init_ == false)
                 {   
-                    updateLocalMap(data.pointcloud_data_, Eigen::Isometry3d::Identity(), MOTION_UPDATA);
+                    updateLocalMap(data, Eigen::Isometry3d::Identity(), MOTION_UPDATA);
                     curr_pose_ = Eigen::Isometry3d::Identity();  
                     prev_pose_ = Eigen::Isometry3d::Identity();  
                     motion_increment_ = Eigen::Isometry3d::Identity();  
                     last_keyframe_pose_ = Eigen::Isometry3d::Identity();  
-                    last_keyframe_time_ = data.time_stamp_;  
+                    last_keyframe_time_ = timestamp;  
                     init_ = true;  
                     return;  
                 }
@@ -128,14 +134,14 @@ namespace Slam3D {
                 deltaT = motion_increment_;
                 prev_pose_ = curr_pose_;  
                 // 判定是否需要更新local map  
-                LocalMapUpdataType updata_type = needUpdataLocalMap(curr_pose_, data.time_stamp_);  
+                LocalMapUpdataType updata_type = needUpdataLocalMap(curr_pose_, timestamp);  
                 // 判定是否需要更新localmap
                 if (updata_type)
                 {
                     // std::cout<<common::RED<<"UPDATA!"<<common::RESET<<std::endl;
                     last_keyframe_pose_ = curr_pose_; // 更新关键帧Pose 
-                    last_keyframe_time_ = data.time_stamp_;   
-                    updateLocalMap(data.pointcloud_data_, curr_pose_, updata_type); // 更新localmap  
+                    last_keyframe_time_ = timestamp;   
+                    updateLocalMap(data, curr_pose_, updata_type); // 更新localmap  
                     //tt.toc("updateLocalMap: ");  
                     // 如果local map 满了  那么调整更新阈值
                     if (!local_map_full_)
@@ -159,7 +165,7 @@ namespace Slam3D {
              * @param data 
              * @return 匹配是否成功 
              */            
-            bool RegistrationLocalMap(FeatureInfo<_PointType> const& data, 
+            bool RegistrationLocalMap(FeaturePointCloudContainer<_PointType> const& data, 
                                                                         Eigen::Isometry3d &predict_pose) override
             {
                 TicToc tt;  
@@ -191,7 +197,7 @@ namespace Slam3D {
         protected:
             /////////////////////////////////////////////////////////////////////////////////////////////////////////////
             /**
-             * @brief: 
+             * @brief: 更新局部地图 
              * @param feature_map 用于更新local map 的点云数据  
              * @param T 相对于local map坐标系的变换矩阵
              * @param updata_type local map的更新方式 
@@ -227,7 +233,7 @@ namespace Slam3D {
 
             /////////////////////////////////////////////////////////////////////////////////////////////////////////////
             /**
-             * @brief: 检查是否需要更新关键帧 
+             * @brief: 检查是否需要更新局部地图
              * @details:  1、检查运动是否足够(local map 没满时，阈值低一些)    2、时间是否足够久 10s  
              */            
             LocalMapUpdataType needUpdataLocalMap(

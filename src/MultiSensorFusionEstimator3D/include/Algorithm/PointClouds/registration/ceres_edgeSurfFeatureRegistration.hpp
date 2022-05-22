@@ -20,7 +20,7 @@
 
 namespace Algorithm
 {
-    using Slam3D::FeatureInfo;  
+    using Slam3D::FeaturePointCloudContainer;  
 
     template<typename _PointType>
     class CeresEdgeSurfFeatureRegistration : public RegistrationBase<_PointType>
@@ -70,18 +70,16 @@ namespace Algorithm
                 // tt.toc("kdtree "); 
             }
 
-            void SetInputTarget(FeatureInfo<_PointType> const& target_input) override
+            void SetInputTarget(FeaturePointCloudContainer<_PointType> const& target_input) override
             {   
                 // 直接使用点云数据 
-                if (target_input.pointcloud_data_.find(edge_name_) 
-                        != target_input.pointcloud_data_.end())
+                if (target_input.find(edge_name_) != target_input.end())
                 {
-                    edge_point_in_ = target_input.pointcloud_data_.find(edge_name_)->second; 
+                    edge_point_in_ = target_input.find(edge_name_)->second; 
                 }
-                if (target_input.pointcloud_data_.find(surf_name_) 
-                        != target_input.pointcloud_data_.end())
+                if (target_input.find(surf_name_) != target_input.end())
                 {
-                    surf_point_in_ = target_input.pointcloud_data_.find(surf_name_)->second; 
+                    surf_point_in_ = target_input.find(surf_name_)->second; 
                 }
             }
 
@@ -154,49 +152,6 @@ namespace Algorithm
                         problem.AddResidualBlock(cost_function, loss_function, parameters);
                         surf_num++;
                     }
-                    // std::vector<int> pointSearchInd;
-                    // std::vector<float> pointSearchSqDis;
-                    // kdtreeSurfMap->nearestKSearch(point_temp, 5, pointSearchInd, pointSearchSqDis);
-
-                    // Eigen::Matrix<double, 5, 3> matA0;
-                    // Eigen::Matrix<double, 5, 1> matB0 = -1 * Eigen::Matrix<double, 5, 1>::Ones();
-                    // // 最远的那个点距离应该小于一个阈值  
-                    // if (pointSearchSqDis[4] < 1.0)
-                    // {        
-                    //     for (int j = 0; j < 5; j++)
-                    //     {
-                    //         matA0(j, 0) = surf_map_->points[pointSearchInd[j]].x;
-                    //         matA0(j, 1) = surf_map_->points[pointSearchInd[j]].y;
-                    //         matA0(j, 2) = surf_map_->points[pointSearchInd[j]].z;
-                    //     }
-                    //     // find the norm of plane
-                    //     Eigen::Vector3d norm = matA0.colPivHouseholderQr().solve(matB0);    // 法向量 n ( 未归一化)
-                    //     double negative_OA_dot_norm = 1 / norm.norm();   // b  
-                    //     norm.normalize(); // 归一化法向量 
-                    //     // 判断该平面质量   
-                    //     bool planeValid = true;
-                    //     for (int j = 0; j < 5; j++)
-                    //     {
-                    //         // if OX * n > 0.2, then plane is not fit well
-                    //         if (fabs(norm(0) * surf_map_->points[pointSearchInd[j]].x +
-                    //                 norm(1) * surf_map_->points[pointSearchInd[j]].y +
-                    //                 norm(2) * surf_map_->points[pointSearchInd[j]].z + negative_OA_dot_norm) > 0.2)
-                    //         {
-                    //             planeValid = false;
-                    //             break;
-                    //         }
-                    //     }
-                    //     Eigen::Vector3d curr_point(surf_point_in_->points[i].x, 
-                    //                                                             surf_point_in_->points[i].y, 
-                    //                                                             surf_point_in_->points[i].z);
-                    //     // 质量好  则进行优化  
-                    //     if (planeValid)
-                    //     {
-                    //         ceres::CostFunction *cost_function = new se3PointSurfFactor(curr_point, norm, negative_OA_dot_norm);    
-                    //         problem.AddResidualBlock(cost_function, loss_function, parameters);
-                    //         surf_num++;
-                    //     }
-                    // }
                 }
                 if (surf_num<20) {
                     printf("not enough surf points");
@@ -288,6 +243,4 @@ namespace Algorithm
                 //po->intensity = 1.0;
             }
     }; // class LineSurfFeatureRegistration 
-
-
-}
+} // namespace 

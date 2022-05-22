@@ -103,7 +103,7 @@ int main()
     // transformed_edge_cloud = down_sampling_edge_.Filter(transformed_edge_cloud); 
     // transformed_surf_cloud = down_sampling_surf_.Filter(transformed_surf_cloud); 
     // std::cout<<"after downsample size: "<<transformed_edge_cloud->size()<<std::endl;
-    // Sensor::FeatureInfo<pcl::PointXYZ> input;
+    // Sensor::CloudContainer<pcl::PointXYZ> input;
     // input.pointcloud_data_.insert(make_pair("loam_edge", transformed_edge_cloud)); 
     // input.pointcloud_data_.insert(make_pair("loam_surf", transformed_surf_cloud)); 
     // registration_ptr->SetInputTarget(input); 

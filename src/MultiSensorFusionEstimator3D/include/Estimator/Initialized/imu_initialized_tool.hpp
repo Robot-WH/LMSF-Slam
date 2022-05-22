@@ -2,7 +2,7 @@
 #ifndef _IMU_INITIALIZED_TOOL_HPP_
 #define _IMU_INITIALIZED_TOOL_HPP_
 
-#include "utility.hpp"
+#include <eigen3/Eigen/Dense>
 #include "Sensor/gnss_data_process.hpp"
 #include "Sensor/sensor.hpp"
 
@@ -127,7 +127,7 @@ namespace Slam3D {
                 }
                 return sum_value / gyro_buf.size();   
             }        
-            
+
         private:
             // 初始化加速度阈值   
             double MeanAccLimit_;  

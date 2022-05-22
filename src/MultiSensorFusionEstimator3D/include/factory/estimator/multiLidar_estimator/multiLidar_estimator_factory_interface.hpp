@@ -15,12 +15,12 @@
 
 namespace Slam3D {
 
-    template<typename _InputPointType>
+    template<typename _InputPointType, typename _FeaturePointType>
     class MultiLidarEstimatorFactoryInterface
     {
         public:
             using MultiLidarEstimatorPtr = 
-                std::unique_ptr<MultiLidarEstimatorBase<_InputPointType>>; 
+                std::unique_ptr<MultiLidarEstimatorBase<_InputPointType, _FeaturePointType>>; 
             virtual ~MultiLidarEstimatorFactoryInterface() {}
             virtual MultiLidarEstimatorPtr Create(std::string config_path) = 0;
         private:

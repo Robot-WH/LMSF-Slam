@@ -18,6 +18,10 @@ namespace Slam3D
 {
     using type_id = uint8_t;
 
+    const std::string POINTS_PROCESSED_NAME = "processed"; 
+    const std::string POINTS_LINE_FEATURE_NAME = "line"; 
+    const std::string POINTS_PLANE_FEATURE_NAME = "plane"; 
+
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     /**
      * @brief:  一个雷达的数据
@@ -38,7 +42,7 @@ namespace Slam3D
     struct MultiLidarData
     {
        double timestamp;    // In second.
-       std::vector<std::pair<type_id, LidarData<_PointT>>> all_lidar_data;      // 点云
+       std::vector<std::pair<type_id, LidarData<_PointT>>> all_lidar_data;      // <激光id, 点云>
     };
 
     template<typename _PointType>
@@ -48,17 +52,18 @@ namespace Slam3D
     /**
      * @brief:  保存特征点各种信息数据 
      * @details: 
-     * @param _PointType 特征点云数据类型  
+     * @param _FeatureType 特征点云数据类型  
+     * @param _oriT 原始点类型
      */    
-    template<typename _PointType>
-    struct FeatureInfo
+    template<typename _FeatureT>
+    struct CloudContainer
     {   
         double time_stamp_ = 0;
         // 点类数据      <数据标识名，数据体>
-        FeaturePointCloudContainer<_PointType> pointcloud_data_;     
+        FeaturePointCloudContainer<_FeatureT> pointcloud_data_;     
     }; 
 
-    //////////////////////////////////////////////////////结果信息发布 
+    //////////////////////////////////////////////////////结果信息发布/////////////////////////////////////////////// 
     /**
     * @brief:  激光帧信息
     * @details 单独一个激光的数据   用与可视化

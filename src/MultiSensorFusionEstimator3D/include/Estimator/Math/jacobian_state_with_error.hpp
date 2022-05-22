@@ -10,7 +10,7 @@
 
 #pragma once 
 
-#include "utility.hpp"
+#include <eigen3/Eigen/Dense>
 #include "Estimator/states.hpp" 
 
 namespace Slam3D{

@@ -11,7 +11,7 @@
 #ifndef _IMU_PREDICTOR_HPP_
 #define _IMU_PREDICTOR_HPP_
 
-#include "utility.hpp"
+#include <eigen3/Eigen/Dense>
 #include "Sensor/sensor.hpp"
 #include "Estimator/states.hpp"
 #include "Model/MotionModel/Imu_MotionModel/imu_midIntegral_model.hpp"
@@ -22,7 +22,8 @@ namespace Slam3D{
      * @brief 卡尔曼滤波的IMU预测类 
      * @details 变化: 采用的状态(比如是否优化外参)、是否优化重力
      */
-    class ImuPredictor {
+    class ImuPredictor 
+    {
         public:
             /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
             /**

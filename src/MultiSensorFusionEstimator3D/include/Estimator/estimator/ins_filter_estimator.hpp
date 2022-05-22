@@ -10,7 +10,7 @@
 
 #pragma once 
 
-#include "utility.hpp"
+#include <eigen3/Eigen/Dense>
 #include "../states.hpp"
 #include "Estimator/filter_estimator_base.hpp"
 #include "Estimator/Predictor/imu_predictor.hpp"
@@ -58,16 +58,18 @@ namespace Slam3D {
                  * @param[in] timestamp 初始化时候的时间戳
                  * @return void 
                  */                
-                virtual bool Initialize(double const& timestamp) override {
+                virtual bool Initialize(double const& timestamp) override 
+                {
                     // 判断IMU数据是否足够   必须要有IMU才能初始化成功(一种自检，保证安全)
-                    if(!imu_initialized_tool_.CheckInitializedImuDateNumber(prepared_imus_)) {
+                    if(!imu_initialized_tool_.CheckInitializedImuDateNumber(prepared_imus_)) 
+                    {
                         std::cout<<"imu data is not enough!!!"<<std::endl;
                         return false;  
                     }
                     // IMU数据中是否有旋转信息 
                     bool rotation_active = false;  
                     // 如果没有旋转信息   采用加速度进行初始化  
-                    if((*prepared_imus_.begin())->rot.w()==0&&
+                    if ((*prepared_imus_.begin())->rot.w()==0&&
                         (*prepared_imus_.begin())->rot.x()==0&&
                         (*prepared_imus_.begin())->rot.y()==0&&
                         (*prepared_imus_.begin())->rot.z()==0) 
@@ -112,7 +114,8 @@ namespace Slam3D {
                         R_w_b = imu_initialized_tool_.ComputeRotationFromGravity(initialized_imu->acc);
                         BaseType::estimated_state_.common_states_.Q_ = Eigen::Quaterniond(R_w_b).normalized();   
                         std::cout<<"imu rotation initialize ! R: "<< std::endl << R_w_b << std::endl;
-                    } else {                   // 直接用旋转初始化 
+                    } 
+                    else {                   // 直接用旋转初始化 
                     }
                     // 陀螺仪偏执初始化 
                     Eigen::Vector3d const& gyro_bias = imu_initialized_tool_.StaticInitializeGyroBias(gyro_buf); 
@@ -154,7 +157,7 @@ namespace Slam3D {
                     if (!BaseType::initialize_done_) 
                     {  
                         // 估计器初始化 
-                        if(Initialize(data->timestamp)) 
+                        if (Initialize(data->timestamp)) 
                         { 
                             std::cout<<"estimator Initialize success!" <<std::endl;
                             BaseType::initialize_done_ = true;  

@@ -57,7 +57,7 @@ namespace Algorithm {
              * @return 
              */            
             void Process(LidarData<_InputPointT> const& data_in, 
-                FeatureInfo<_OutputFeatureT> &data_out) override
+                CloudContainer<_OutputFeatureT> &data_out) override
             {
                 FeaturePointCloudPtr pc_out_edge(new FeaturePointCloud());    // 线特征
                 FeaturePointCloudPtr pc_out_surf(new FeaturePointCloud());      // 面特征
@@ -291,7 +291,7 @@ namespace Algorithm {
             {
                 for (int i=0; i<N_SCANS_; i++) 
                 {
-                    laserCloudScans.emplace_back(new PointCloud());     
+                    laserCloudScans.emplace_back(new pcl::PointCloud<_InputPointT>());     
                 }
 
                 for (int i = 0; i < (int)pc_in.points.size(); i++)

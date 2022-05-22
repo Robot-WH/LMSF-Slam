@@ -11,7 +11,13 @@ multiple_thread: 0
 # 激光tracking的模式   
 # scan_map: scan和local map 进行匹配
 # loam: 高频的scan-scan 匹配 + 低频的scan-map校正  ------ 暂时还没实现，也可能永远也不实现了  hhhhhh
-lidar_tracking_mode: "scan_map"     # "loam"   
+# --------------------------------------------------tracker设置 
+tracker.working_mode: "scan_map"     # loam  
+
+tracker.local_map.type: "time_sliding_window"
+tracker.local_map.sliding_window.size: 10
+
+
 # scan - map 匹配采用的算法  
 tracker.scan_map.registration_method: "ndt"        # "feature_base", "point_plane" 
 # NDT相关参数  
@@ -32,19 +38,6 @@ preprocess.downSample.type: "VoxelGrid"
 preprocess.downSample.voxelGrid.voxel_size: 0.8
 
 # ------------------------------------------------特征点相关参数 
-
-
-# --------------------------------------------------tracker设置 
-tracker.working_mode: "scan_map"     # loam  
-# 如果使用的是特征匹配的具体方法 
-tracker.scan_map.type: "loam"
-
-
-
-tracker.local_map_type: "sliding_window"
-tracker.local_map_type.sliding_window.size: 10
-
-
 
 # segmmentation
 segment_cloud: 1 # RHD02lab: 1, RHD03garden: 1, RHD04building: 1

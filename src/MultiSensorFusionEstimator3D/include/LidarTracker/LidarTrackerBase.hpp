@@ -31,10 +31,12 @@ namespace Slam3D {
              * @param[in] data 用于求解的特征数据
              * @param[out] T 输入预测位姿态, 输出结果
              */        
-            virtual void Solve(FeatureInfo<_PointType> const& data, Eigen::Isometry3d &T) = 0;
+            virtual void Solve(FeaturePointCloudContainer<_PointType> const& data, 
+                                                    double const& timestamp,
+                                                    Eigen::Isometry3d &deltaT) = 0;
             virtual Eigen::Isometry3d const& GetCurrPoseInLocalFrame() const = 0;
             virtual std::unordered_map<std::string, PointCloudConstPtr> GetLocalMap() const = 0; 
-            virtual bool RegistrationLocalMap(FeatureInfo<_PointType> const& data, 
+            virtual bool RegistrationLocalMap(FeaturePointCloudContainer<_PointType> const& data, 
                 Eigen::Isometry3d &predict_pose) = 0;  
     };
 } // class LidarTrackerBase 

@@ -20,6 +20,10 @@
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
 #include <geometry_msgs/TransformStamped.h>
+#include <message_filters/sync_policies/approximate_time.h>
+#include <message_filters/subscriber.h>
+#include <liv_slam/SaveData.h>
+#include <liv_slam/SaveMap.h>
 
 // 参数服务器  
 class ParamServer {
@@ -267,8 +271,12 @@ static sensor_msgs::PointCloud2 publishCloud(ros::Publisher *thisPub,
                                                                                                     ros::Time const& thisStamp, 
                                                                                                     std::string const& thisFrame) 
 {
+    //thisCloud.width() = 0; 
+    // std::cout<<"cloud.points.size (): "<<thisCloud->size()<<", cloud.width * cloud.height: "
+    // <<thisCloud->width * thisCloud->height<<std::endl;
     sensor_msgs::PointCloud2 tempCloud;
     pcl::toROSMsg(*thisCloud, tempCloud);
+    // std::cout<<"toROSMsg OK"<<std::endl;
     tempCloud.header.stamp = thisStamp;
     tempCloud.header.frame_id = thisFrame;
     if (thisPub->getNumSubscribers() != 0) {

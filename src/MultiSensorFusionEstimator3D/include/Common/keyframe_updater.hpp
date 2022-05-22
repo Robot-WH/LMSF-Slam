@@ -35,7 +35,7 @@ namespace Slam3D
         : is_first_(true),
           prev_keypose_(Eigen::Isometry3d::Identity()),
           last_keyframe_time_(0),
-          KEYFRAME_TRANS_INCREM_(2.0), // m
+          KEYFRAME_TRANS_INCREM_(1.0), // m
           KEYFRAME_ANGLE_INCREM_(0.5236),    // 30度
           KEYFRAME_TIME_INTERVAL_(60)  // s
       {
@@ -58,6 +58,7 @@ namespace Slam3D
           is_first_ = false;
           prev_keypose_ = pose;
           last_keyframe_time_ = curr_time; 
+          odom_increment_ = Eigen::Isometry3d::Identity();  
           return TIME;
         }
          // 先检查时间
@@ -70,13 +71,13 @@ namespace Slam3D
         } 
         // 然后检查运动  
         // 计算与上一帧的位移
-        odom_increment_ = prev_keypose_.inverse() * pose;
+        odom_increment_ = prev_keypose_.inverse() * pose;   // last<-curr
         double dx = odom_increment_.translation().norm();
         Eigen::Quaterniond q_a(odom_increment_.linear());
         q_a.normalize();   
         double da = std::acos(q_a.w())*2;     // 获得弧度    90度 约等于 1.5  
         // too close to the previous frame
-        if(dx < KEYFRAME_TRANS_INCREM_ && da < KEYFRAME_ANGLE_INCREM_) 
+        if (dx < KEYFRAME_TRANS_INCREM_ && da < KEYFRAME_ANGLE_INCREM_) 
         {
           return FALSE;   //  不需要更新  
         }
@@ -102,7 +103,7 @@ namespace Slam3D
        */
       Eigen::Isometry3d const& GetOdomIncrement() const 
       {
-          return odom_increment_;  
+          return odom_increment_;     // last<-curr
       }
 
     private:
@@ -116,7 +117,7 @@ namespace Slam3D
       Eigen::Isometry3d prev_keypose_;    // 上一帧关键帧的位姿
       double last_keyframe_time_; 
       // 两个关键帧之间的odom
-      Eigen::Isometry3d odom_increment_;  
+      Eigen::Isometry3d odom_increment_;   // last<-curr 
   }; // class 
 } // namespace 
 

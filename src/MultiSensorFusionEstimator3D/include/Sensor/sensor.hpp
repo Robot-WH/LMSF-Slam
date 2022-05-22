@@ -10,8 +10,11 @@
 #ifndef SENSOR_HPP_
 #define SENSOR_HPP_
 
+#include <eigen3/Eigen/Dense>
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
 #include "Geocentric/LocalCartesian.hpp"
-#include "utility.hpp"
+
 
 namespace Slam3D {
 

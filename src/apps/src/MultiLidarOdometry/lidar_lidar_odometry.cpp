@@ -48,7 +48,7 @@ std::queue<MultiLidarData<PointT>> undistorted_cloud_buf;    // 去除畸变后�
 std::mutex m_preprocess, m_estimate;
 
 std::unique_ptr<RotaryLidarPreProcess<PointT>> pre_processor;  
-std::unique_ptr<MultiLidarEstimatorBase<PointT>> estimator;             // 估计器
+std::unique_ptr<MultiLidarEstimatorBase<PointT, PointT>> estimator;             // 估计器
 std::unique_ptr<ExternalSensorDeskewBase> deskew;  
 
 ros::Publisher pubUndistortPoints;  

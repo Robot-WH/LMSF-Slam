@@ -34,11 +34,11 @@ namespace Slam3D {
  */    
 template<typename _PointType, typename _FeatureType>
 class MultiLidarEstimatorFactory 
-: public MultiLidarEstimatorFactoryInterface<_PointType>
+: public MultiLidarEstimatorFactoryInterface<_PointType, _FeatureType>
 {   
     private:
         using EstimatorType = typename MultiLidarEstimatorFactoryInterface<
-            _PointType>::MultiLidarEstimatorPtr;
+            _PointType, _FeatureType>::MultiLidarEstimatorPtr;
         // 特征处理类型
         using FeatureProcessorPtr = typename MultiLidarEstimator<_PointType, 
             _FeatureType>::FeatureProcessorPtr;
@@ -72,10 +72,14 @@ class MultiLidarEstimatorFactory
             for (int i = 0; i < lidar_num; i++)
             {
                 std::string lidar_tracking_mode;     // loam 或 scan - map  
-                param_read.ReadParam("lidar_tracking_mode", lidar_tracking_mode);    
+                param_read.ReadParam("tracker.working_mode", lidar_tracking_mode);    
                 // 匹配的模式  1、scan-map   2、loam (scan-scan + scan-map)
                 if (lidar_tracking_mode == "scan_map")
                 {
+                    std::string local_map_type;
+                    param_read.ReadParam("tracker.local_map.type", local_map_type);    
+                    int time_sliding_window_size;
+                    param_read.ReadParam("tracker.local_map.sliding_window.size", time_sliding_window_size);    
                     // 设置local map   local map 名称 + local map 类型 
                     // 匹配的方法
                     std::string registration_method;    
@@ -110,7 +114,11 @@ class MultiLidarEstimatorFactory
                                 make_ndtOmp<_PointType>(ndt_resolution, transformation_epsilon, 
                                 step_size, maximum_iterations, num_threads, nn_search_method);  
                             tracker->SetRegistration(std::move(ndt_ptr));     // 匹配算法设置
-                            tracker->SetLocalMap({"filtered"}, "sliding_Localmap", 5);  
+                            if (local_map_type == "time_sliding_window")
+                            {
+                                tracker->SetLocalMap({"filtered"}, local_map_type, time_sliding_window_size);  
+                            }
+                            
                             tracker_container.push_back(std::move(tracker)); 
                         }
                         // 创建预处理器     将采样 + 距离滤波 ，对于NDT 不需要进行离群点滤波 ，因为ndt 本身具有滤除离群点的能力

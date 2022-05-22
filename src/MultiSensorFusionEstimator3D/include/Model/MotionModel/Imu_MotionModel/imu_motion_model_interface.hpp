@@ -8,11 +8,10 @@
  * @Others: 
  */
 
-
 #ifndef _IMU_MOTION_MODEL_INTERFACE_HPP_
 #define _IMU_MOTION_MODEL_INTERFACE_HPP_
 
-#include "utility.hpp"
+#include <eigen3/Eigen/Dense>
 #include "Sensor/sensor.hpp"
 #include "Estimator/states.hpp"
 

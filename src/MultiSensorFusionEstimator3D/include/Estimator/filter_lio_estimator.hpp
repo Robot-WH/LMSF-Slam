@@ -11,7 +11,7 @@
 #ifndef _FILTER_LIO_ESTIMATOR_HPP_
 #define _FILTER_LIO_ESTIMATOR_HPP_
 
-#include "utility.hpp"
+#include <eigen3/Eigen/Dense>
 #include "states.hpp"
 #include "Estimator/filter_estimator_base.hpp"
 #include "Estimator/ins_filter_estimator.hpp"
