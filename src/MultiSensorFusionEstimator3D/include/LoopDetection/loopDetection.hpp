@@ -106,6 +106,7 @@ namespace Slam3D
             std::pair<int64_t, Eigen::Isometry3d> Relocalization(
                 FeaturePointCloudContainer<_PointType> const& scan_in)
             {   
+                TicToc tt; 
                 // step1 先识别出相似帧  
                 std::pair<int64_t, Eigen::Isometry3d> res = scene_recognizer_.FindSimilarPointCloud(scan_in);  
                 if (res.first == -1) return res; 
@@ -115,7 +116,6 @@ namespace Slam3D
                 // 将粗匹配所需要的点云local map 提取出来 
                 for (auto const& name : rough_registration_specific_name_)
                 {   // 从数据库中查找 名字为 name 的点云 
-                    std::cout<<common::YELLOW<<"Find local map name: "<<name<<common::RESET<<std::endl;
                     typename pcl::PointCloud<_PointType>::Ptr local_map(new pcl::PointCloud<_PointType>());
                     if (!poseGraph_database.GetAdjacentLinkNodeLocalMap<_PointType>(
                         res.first, 5, name, local_map))
@@ -130,7 +130,7 @@ namespace Slam3D
                 rough_registration_->SetInputTarget(scan_in);
                 // 当前帧位姿转换到世界系下
                 Eigen::Isometry3d historical_pose;
-                if (!poseGraph_database.SearchKeyFramePose(res.first, historical_pose)) {
+                if (!poseGraph_database.SearchVertexPose(res.first, historical_pose)) {
                         std::cout<<common::RED<<"ERROR : not find historical pose "<<common::RESET<<std::endl;
                         res.first = -1;
                         return res;  
@@ -172,7 +172,7 @@ namespace Slam3D
                     local_map = owned_localmap[POINTS_PROCESSED_NAME];  
                 } else {  // 如果之前没有构造出 POINTS_PROCESSED_NAME 的local map 那么这里构造
                     if (!poseGraph_database.GetAdjacentLinkNodeLocalMap<_PointType>(
-                        res.first, 5, POINTS_PROCESSED_NAME, local_map)){
+                        res.first, 5, POINTS_PROCESSED_NAME, local_map)) {
                         res.first = -1;
                         return res;  
                     }
@@ -180,12 +180,14 @@ namespace Slam3D
                 align_evaluator_.SetTargetPoints(local_map); 
                 double score = align_evaluator_.AlignmentScore(scan_in.at(POINTS_PROCESSED_NAME), 
                                                                                                                         res.second.matrix().cast<float>(), 0.1, 0.6); 
+                tt.toc("Relocalization ");
+                // score的物理意义 是 平均平方残差
                 if (score > 0.05) {
                     res.first = -1;
                     return res;  
                 }
-                // std::cout << common::GREEN<<"relocalization success!, score: "<< score<<std::endl;
                 std::cout << common::GREEN<<"relocalization success!"<<std::endl;
+                std::cout << common::GREEN<<"score: "<<score<<std::endl;
                 return res;  
             }
 
@@ -506,7 +508,7 @@ namespace Slam3D
                         poseGraph_database.SearchVertexPose(res.first, historical_pose);
                         new_loop.constraint_ = historical_pose.inverse() * res.second;// T second -> first
                         loop_mt_.lock();
-                        new_loops_.push_back(new_loop);  
+                        new_loops_.push_back(std::move(new_loop));  
                         loop_mt_.unlock();  
                     }
                     std::chrono::milliseconds dura(50);

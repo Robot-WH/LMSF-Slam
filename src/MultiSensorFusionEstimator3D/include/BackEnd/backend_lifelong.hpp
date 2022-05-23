@@ -35,7 +35,7 @@ namespace Slam3D {
         private:
             enum WorkMode 
             {
-                LOSS_LOCALIZATION = 0, // 开机之后处于该模式   接着会进行重定位找回定位 
+                RELOCALIZATION = 0, // 开机之后处于该模式   接着会进行重定位找回定位 
                 LOCALIZATION,
                 MAPPING
             };
@@ -45,10 +45,9 @@ namespace Slam3D {
             // 局部优化每次处理的最大帧数  
             int max_keyframes_per_update_ = 10;
             int planeConstraint_optimize_freq_ = 5;
-            std::vector<KeyFramePtr> wait_optimize_keyframes_;
             bool enable_GNSS_optimize_ = false;  
             bool enable_planeConstraint_optimize_ = false;
-            bool enable_incremental_mapping_ = true;  // 开启增量建图 
+            bool enable_incremental_mapping_ = false;  // 开启增量建图 
             // 回环模块 
             std::shared_ptr<loopDetection<_FeatureT>> loop_detect_ = nullptr;  
             // 优化器
@@ -72,7 +71,27 @@ namespace Slam3D {
                 // 数据注册   
                 DataManager::GetInstance().Registration<KeyFrameInfo<_FeatureT>>("keyframes_info", 1);
                 DataManager::GetInstance().Registration<Eigen::Isometry3d>("odom_to_map", 1);
-                work_mode = LOSS_LOCALIZATION;
+                work_mode = MAPPING;   // 默认为建图模式 
+                std::cout<<common::GREEN<<"进入建图模式 ----------------- "<<std::endl;
+            }
+
+            /**
+             * @brief: 外界调用的数据库载入接口 
+             */            
+            void Load() override
+            {    // pose graph 加载
+                if (!PoseGraphDataBase::GetInstance().Load()) 
+                {
+                    std::cout<<common::YELLOW<<"数据库载入失败，准备建图...... "<<std::endl;
+                    return;
+                }  
+                work_mode = RELOCALIZATION;   // 默认为建图模式 
+                std::cout<<common::GREEN<<"载入历史数据库，准备重定位......"<<std::endl;
+                // 发布在载后的数据 
+                KeyFrameInfo<_FeatureT> keyframe_info; 
+                keyframe_info.vertex_database_ = PoseGraphDataBase::GetInstance().GetAllVertex(); 
+                keyframe_info.edge_database_ = PoseGraphDataBase::GetInstance().GetAllEdge(); 
+                DataManager::GetInstance().AddData("keyframes_info", std::move(keyframe_info));   // 发布图关键帧  
             }
 
             /**
@@ -96,7 +115,7 @@ namespace Slam3D {
                     return;
                 }
                 last_keyframe_t = lidar_data.time_stamp_; 
-                if (work_mode == LOSS_LOCALIZATION) 
+                if (work_mode == RELOCALIZATION) 
                 {
                     // 重定位
                     std::cout<<common::GREEN<<"-----------------RELOCALIZATION!-----------------"<<std::endl;
@@ -110,6 +129,8 @@ namespace Slam3D {
                         } 
                     } else {
                         work_mode = LOCALIZATION; // 进入定位模式 
+                        base::trans_odom2map_ = res.second * odom.inverse(); 
+                        DataManager::GetInstance().AddData("odom_to_map", base::trans_odom2map_);      // 发布坐标变换
                     }
                 } else if (work_mode == LOCALIZATION) {
                     // 定位如果丢失，若开启增量建图 incremental mapping 则会进行建图，否则进入重定位模式 
@@ -119,8 +140,7 @@ namespace Slam3D {
                 }
             }
             // 回环模块在system中初始化  再设置进来  
-            virtual void SetLoopDetection(std::shared_ptr<loopDetection<_FeatureT>> const& loop_detect) override
-            {
+            virtual void SetLoopDetection(std::shared_ptr<loopDetection<_FeatureT>> const& loop_detect) override {
                 loop_detect_ = loop_detect;  
             }
 
@@ -133,8 +153,6 @@ namespace Slam3D {
                                             Eigen::Isometry3d const& odom, 
                                             Eigen::Isometry3d const& between_constraint)
             {
-                // std::cout<<common::GREEN<<"Backend -- AddKeyFrame()"
-                //     <<common::RESET<<std::endl;
                 // 线程锁开启
                 std::lock_guard<std::mutex> lock(base::keyframe_queue_mutex_); 
                 // 把关键帧点云存储到硬盘里     不消耗内存
@@ -146,9 +164,7 @@ namespace Slam3D {
                 }
                 // 通过点云与里程计和累计距离等来创建关键帧   实际的关键帧中就可以不用包含点云数据了  
                 KeyFrame keyframe(lidar_data.time_stamp_, odom, KF_index_);
-                keyframe.between_constraint_ = between_constraint;      // 获取该关键帧与上一关键帧之间的相对约束  last<-curr
-                // 获取在MAP系下的坐标   注意  这里只是为了可视化   在关键帧处理函数中会用最新的优化矩阵去转换         
-                // keyframe.correct_pose_ = base::trans_odom2map_ * keyframe.odom_;  
+                keyframe.between_constraint_ = between_constraint;      // 获取该关键帧与上一关键帧之间的相对约束  last<-curr       
                 base::new_keyframe_queue_.push_back(keyframe);     // 加入处理队列
                 KF_index_++;
                 // 数据加入到回环模块进行处理
@@ -159,10 +175,10 @@ namespace Slam3D {
                 keyframe_info.vertex_database_ = PoseGraphDataBase::GetInstance().GetAllVertex(); 
                 keyframe_info.edge_database_ = PoseGraphDataBase::GetInstance().GetAllEdge(); 
                 keyframe_info.new_keyframes_ = base::new_keyframe_queue_;  
-                //keyframe_info.loops_ = PoseGraphDataBase::GetInstance().GetAllLoop();  
                 DataManager::GetInstance().AddData("keyframes_info", std::move(keyframe_info));   // 发布图关键帧  
                 DataManager::GetInstance().AddData("odom_to_map", base::trans_odom2map_);      // 发布坐标变换
             }
+            
             /**
              * @brief: 定位模式 
              */            
@@ -196,14 +212,6 @@ namespace Slam3D {
                         // 计算坐标转换矩阵
                         base::trans_odom2map_ = database.GetLastVertex().pose_
                             * database.GetLastKeyFrameData().odom_.inverse();  
-                        // base::trans_odom2map_ = database.GetLastKeyFrameData().correct_pose_
-                        //     * database.GetLastKeyFrameData().odom_.inverse();  
-                        
-                        // for(int i = 0; i < base::new_keyframe_queue_.size(); i++)
-                        // {
-                        //     base::new_keyframe_queue_[i].correct_pose_ = 
-                        //         base::trans_odom2map_ * base::new_keyframe_queue_[i].odom_;  
-                        // }
                         base::keyframe_queue_mutex_.unlock();  
                     }
                     std::chrono::milliseconds dura(1000);
@@ -242,11 +250,8 @@ namespace Slam3D {
                         PoseGraphDataBase::GetInstance().AddKeyFrameData(keyframe);   
                         PoseGraphDataBase::GetInstance().AddVertex(id, corrected_pose);  
                         PoseGraphDataBase::GetInstance().AddPosePoint(corrected_pose);  
-                        // PoseGraphDataBase::GetInstance().AddVertex(id, keyframe.correct_pose_);  
-                        // PoseGraphDataBase::GetInstance().AddPosePoint(keyframe.correct_pose_);  
                         continue;
                     }
-                    // optimizer_->AddSe3Node(keyframe.correct_pose_, id); 
                     optimizer_->AddSe3Node(corrected_pose, id); 
                     // 观测噪声
                     Eigen::Matrix<double, 1, 6> noise;
@@ -303,8 +308,6 @@ namespace Slam3D {
                     PoseGraphDataBase::GetInstance().AddKeyFrameData(keyframe);   
                     PoseGraphDataBase::GetInstance().AddVertex(id, corrected_pose);  
                     PoseGraphDataBase::GetInstance().AddPosePoint(corrected_pose);  
-                    // PoseGraphDataBase::GetInstance().AddVertex(id, keyframe.correct_pose_);  
-                    // PoseGraphDataBase::GetInstance().AddPosePoint(keyframe.correct_pose_);  
                 }
 
                 base::new_keyframe_queue_.erase(base::new_keyframe_queue_.begin(), 

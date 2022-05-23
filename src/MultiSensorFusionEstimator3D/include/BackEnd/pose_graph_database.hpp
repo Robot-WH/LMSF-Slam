@@ -38,14 +38,20 @@ namespace Slam3D
              * @brief: 保存数据
              */            
             bool Save()
-            {
+            {   // 保存keyframe信息 
                 assert(database_save_path_ != ""); 
-                for (uint64_t i = 0; i < keyframe_database_.size(); i++)
-                {
-                    keyframe_database_[i].save(database_save_path_);  
+                for (uint64_t i = 0; i < keyframe_database_.size(); i++) {
+                    keyframe_database_[i].Save(database_save_path_);  
                 }
                 // 保存pose-graph
-
+                // 节点
+                for (uint64_t i = 0; i < vertex_container_.size(); i++) {
+                    vertex_container_[i].Save(database_save_path_);  
+                }
+                // 边
+                for (uint64_t i = 0; i < edge_container_.size(); i++) {
+                    edge_container_[i].Save(database_save_path_);  
+                }
                 // 保存位姿点云
                 std::string file_path = database_save_path_ + "/Position3D.pcd";
                 pcl::io::savePCDFileBinary(file_path, *cloudKeyFramePosition3D_);
@@ -58,13 +64,187 @@ namespace Slam3D
             bool Load()
             {
                 assert(database_save_path_ != ""); 
+                if (!LoadKeyFrame()) {
+                    return false;
+                }
+                if (!LoadPoseGraph()) 
+                {
+                    DataReset(); 
+                    return false; 
+                }
+                // 加载姿态点云
+                std::string file_path = database_save_path_ +"/Position3D.pcd";
+                if (pcl::io::loadPCDFile(file_path, *cloudKeyFramePosition3D_) < 0) {
+                    std::cout<<common::RED<<"Load Position3D ERROR"<<std::endl;
+                    DataReset(); 
+                    return false; 
+                }
+                file_path = database_save_path_ +"/Rot3D.pcd";
+                if (pcl::io::loadPCDFile(file_path, *cloudKeyFrameRot3D_) < 0) {
+                    std::cout<<common::RED<<"Load Rot3D ERROR"<<std::endl;
+                    DataReset();
+                    return false;
+                } 
+                return true; 
             }
 
-            void SetSavePath(string const& database_save_path)
+            bool LoadKeyFrame()
             {
+                uint64_t index = 0; 
+                // 加载keyframe数据
+                while(1) 
+                {
+                    KeyFrame keyframe;  
+                    std::ifstream ifs(database_save_path_ + "/KeyFrameData/data_" + std::to_string(index));
+                    if(!ifs) {
+                        break;
+                    }
+                    index++;  
+                    while(!ifs.eof()) 
+                    {
+                        std::string token;
+                        ifs >> token;
+                        if(token == "stamp") 
+                        {
+                            ifs >> keyframe.time_stamp_; 
+                        } 
+                        else if (token == "id")
+                        {
+                            ifs >> keyframe.id_; 
+                        }        
+                        else if (token == "odom")
+                        {
+                            Eigen::Matrix4d matrix; 
+                            for(int i = 0; i < 4; i++) {
+                                for(int j = 0; j < 4; j++) {
+                                    ifs >> matrix(i, j);
+                                }
+                            }
+                            keyframe.odom_.translation() = matrix.block<3, 1>(0, 3);
+                            keyframe.odom_.linear() = matrix.block<3, 3>(0, 0);
+                        }
+                        else if (token == "utm_coord")
+                        {
+                        }
+                        else if (token == "floor_coeffs")
+                        {
+                        }
+                        else if (token == "acceleration")
+                        {
+                        }
+                        else if (token == "orientation")
+                        {
+                        }
+                    }
+                    keyframe_database_.push_back(std::move(keyframe));
+                }
+                if (index == 0) return false;
+                std::cout<<common::GREEN<<"Load KetFrame done, num: "<<
+                keyframe_database_.size()<<std::endl;
+                return true; 
+            }
+
+            bool LoadPoseGraph()
+            {
+                uint64_t index = 0; 
+                // 加载vertex数据
+                while(1) 
+                {
+                    Vertex vertex;  
+                    std::ifstream ifs(database_save_path_ + "/PoseGraph/Vertex/id_" + std::to_string(index));
+                    if(!ifs) {
+                        break;
+                    }
+                    index++;  
+                    while(!ifs.eof()) 
+                    {
+                        std::string token;
+                        ifs >> token;
+                        if (token == "id")
+                        {
+                            ifs >> vertex.id_; 
+                            //std::cout<<"vertex.id: "<<vertex.id_<<std::endl;
+                        }        
+                        else if (token == "pose")
+                        {
+                            Eigen::Matrix4d matrix; 
+                            for(int i = 0; i < 4; i++) {
+                                for(int j = 0; j < 4; j++) {
+                                    ifs >> matrix(i, j);
+                                }
+                            }
+                            vertex.pose_.translation() = matrix.block<3, 1>(0, 3);
+                            vertex.pose_.linear() = matrix.block<3, 3>(0, 0);
+                            //std::cout<<"vertex.pose_: "<<vertex.pose_.matrix()<<std::endl;
+                        }
+                    }
+                    vertex_container_.push_back(std::move(vertex));
+                }
+                if (vertex_container_.size() != keyframe_database_.size()) {
+                    std::cout<<common::RED<<
+                    "Load KetFrame ERROR: vertex num keyframe num not match,  vertex num: "
+                    <<vertex_container_.size()<<", keyframe num: "<<
+                    keyframe_database_.size()<<std::endl;
+                    return false;  
+                }
+                index = 0;  
+                // 加载edge数据
+                while(1) 
+                {
+                    Edge edge;  
+                    std::ifstream ifs(database_save_path_ + "/PoseGraph/Edge/id_" + std::to_string(index));
+                    if(!ifs) {
+                        break;
+                    }
+                    index++;  
+                    while(!ifs.eof()) 
+                    {
+                        std::string token;
+                        ifs >> token;
+                        if (token == "id")
+                        {
+                            ifs >> edge.id_; 
+                            //std::cout<<"edge.id: "<<edge.id_<<std::endl;
+                        }        
+                        else if (token == "link_head")
+                        {
+                            ifs >> edge.link_id_.first; 
+                            //std::cout<<"link_head: "<<edge.link_id_.first<<std::endl;
+                        }
+                        else if (token == "link_tail")
+                        {
+                            ifs >> edge.link_id_.second; 
+                            //std::cout<<"link_tail: "<<edge.link_id_.second<<std::endl;
+                        }
+                        else if (token == "constraint")
+                        {
+                            Eigen::Matrix4d matrix; 
+                            for(int i = 0; i < 4; i++) {
+                                for(int j = 0; j < 4; j++) {
+                                    ifs >> matrix(i, j);
+                                }
+                            }
+                            edge.constraint_.translation() = matrix.block<3, 1>(0, 3);
+                            edge.constraint_.linear() = matrix.block<3, 3>(0, 0);
+                            //std::cout<<"edge.constraint_: "<<edge.constraint_.matrix()<<std::endl;
+                        }
+                        else if (token == "noise")
+                        {
+                            for(int i = 0; i < 6; i++) {
+                                    ifs >> edge.noise_(0, i);
+                            }
+                            //std::cout<<"edge.noise_: "<<edge.noise_.matrix()<<std::endl;
+                        }
+                    }
+                    edge_container_.push_back(std::move(edge));
+                }
+                std::cout<<common::GREEN<<"Load Pose-Graph done"<<std::endl;
+                return true; 
+            }
+
+            void SetSavePath(string const& database_save_path) {
                 database_save_path_ = database_save_path; 
             }
-
             // 添加一个关键帧的数据
             void AddKeyFrameData(KeyFrame const& keyframe)
             {
@@ -74,13 +254,10 @@ namespace Slam3D
                 database_mt_.unlock();  
                 has_new_keyframe_ = true; 
             }
-            
             // 添加一个位姿图节点
-            void AddVertex(uint64_t id, Eigen::Isometry3d const& pose)
-            {
+            void AddVertex(uint64_t id, Eigen::Isometry3d const& pose) {
                 vertex_container_.emplace_back(id, pose);
             }
-
             // 添加一个位姿到位姿点云 
             void AddPosePoint(Eigen::Isometry3d const& pose) 
             {
@@ -106,11 +283,13 @@ namespace Slam3D
             inline void AddEdge(uint64_t head_id, uint64_t tail_id, Eigen::Isometry3d const& constraint, 
                                             Eigen::Matrix<double, 1, 6> const& noise)
             {
-                edge_container_.emplace_back(head_id, tail_id, constraint, noise); 
+                uint64_t id = edge_container_.size();  // 边的标识 
+                edge_container_.emplace_back(id, head_id, tail_id, constraint, noise); 
             }
-
-            inline void AddEdge(Edge const& edge)
+            // 重载
+            inline void AddEdge(Edge &edge)
             {
+                edge.id_ = edge_container_.size(); 
                 edge_container_.push_back(edge); 
             }
 
@@ -164,28 +343,25 @@ namespace Slam3D
                 return true;  
             }
 
-            std::deque<KeyFrame> const& GetKeyFrameDataBase()
-            {
+            std::deque<KeyFrame> const& GetKeyFrameDataBase() {
                 return keyframe_database_;
             }
 
-            std::deque<Vertex> const& GetAllVertex()
-            {
+            std::deque<Vertex> const& GetAllVertex() {
                 return vertex_container_;
             }
 
-            std::deque<Edge> const& GetAllEdge()
-            {
+            std::deque<Edge> const& GetAllEdge() {
                 return edge_container_;
             }
-
+            // 获取位置点云
             pcl::PointCloud<pcl::PointXYZ>::Ptr GetKeyFramePositionCloud() 
             {
                 boost::shared_lock<boost::shared_mutex> lock(pose_cloud_mt_); 
                 return pcl::PointCloud<pcl::PointXYZ>::Ptr(
                     new pcl::PointCloud<pcl::PointXYZ>(*cloudKeyFramePosition3D_));
             }
-
+            // 获取姿态点云
             pcl::PointCloud<pcl::PointXYZI>::Ptr GetKeyFrameRotCloud()
             {
                 boost::shared_lock<boost::shared_mutex> lock(pose_cloud_mt_); 
@@ -216,9 +392,6 @@ namespace Slam3D
                     if (pcl::io::loadPCDFile(file_path, origin_points) < 0) return false; 
                     Eigen::Isometry3d pose;
                     // 如果没有查到该帧的位姿  那么就失败 
-                    // if (!SearchKeyFramePose(center_id + i, pose)) {
-                    //     return false;  
-                    // }
                     if (!SearchVertexPose(center_id + i, pose)) {
                         return false;  
                     }
@@ -246,17 +419,6 @@ namespace Slam3D
             }
 
             /**
-             * @brief: 根据index获取关键帧的pose 
-             * @param index
-             */            
-            inline bool SearchKeyFramePose(uint32_t const& index, Eigen::Isometry3d &pose) const
-            {
-                if (keyframe_database_.size() <= index) return false;
-                pose = keyframe_database_[index].correct_pose_;
-                return true;  
-            }
-
-            /**
              * @brief: 根据index获取vertex的pose 
              * @param index
              */            
@@ -267,35 +429,12 @@ namespace Slam3D
                 return true;  
             }
 
-            // /**
-            //  * @brief: 添加一个回环
-            //  * @details: 
-            //  * @param {*}
-            //  * @return {*}
-            //  */            
-            // inline void AddLoop(Loop const& loop) 
-            // {
-            //     boost::unique_lock<boost::shared_mutex> lock(loop_mt_);    // 写锁 
-            //     loop_container_.push_back(loop);
-            // }
-
-            /**
-             * @brief: 获取全部的回环数据
-             * @details: 
-             * @param {*}
-             * @return {*}
-             */            
-            // inline std::deque<Loop> GetAllLoop() 
-            // {
-            //     boost::shared_lock<boost::shared_mutex> lock(loop_mt_);    // 读锁 
-            //     return loop_container_;  
-            // }
-
             inline void UpdateVertexPose(uint32_t id, Eigen::Isometry3d correct_pose)
             {
                 boost::unique_lock<boost::shared_mutex> lock1(database_mt_);    // 写锁 
                 boost::unique_lock<boost::shared_mutex> lock2(pose_cloud_mt_);    // 写锁 
-                keyframe_database_[id].correct_pose_ = correct_pose;
+                vertex_container_[id].SetPose(correct_pose);  // 节点 位姿更新  
+                // 位姿点云更新   
                 cloudKeyFramePosition3D_->points[id].x = correct_pose.translation().x();
                 cloudKeyFramePosition3D_->points[id].y = correct_pose.translation().y();
                 cloudKeyFramePosition3D_->points[id].y = correct_pose.translation().y();
@@ -305,8 +444,6 @@ namespace Slam3D
                 cloudKeyFrameRot3D_->points[id].y = q.y();
                 cloudKeyFrameRot3D_->points[id].z = q.z();
                 cloudKeyFrameRot3D_->points[id].intensity = q.w();   
-
-                vertex_container_[id].SetPose(correct_pose); 
             }
 
         protected:
@@ -323,15 +460,23 @@ namespace Slam3D
             PoseGraphDataBase(PoseGraphDataBase const& object) {}
             PoseGraphDataBase(PoseGraphDataBase&& object) {}
 
+            void DataReset()
+            {
+                cloudKeyFramePosition3D_->clear();
+                cloudKeyFrameRot3D_->clear();
+                keyframe_database_.clear();
+                edge_container_.clear();
+                vertex_container_.clear(); 
+            }
+
         private:
             bool has_new_keyframe_ = false; 
             std::string database_save_path_;  
             boost::shared_mutex pose_cloud_mt_, database_mt_, loop_mt_;  
             pcl::PointCloud<pcl::PointXYZ>::Ptr cloudKeyFramePosition3D_;  // 历史关键帧位置
             pcl::PointCloud<pcl::PointXYZI>::Ptr cloudKeyFrameRot3D_; // 历史关键帧姿态   四元数形式  
-            std::deque<KeyFrame> keyframe_database_; // 保存全部关键帧信息
-            //std::deque<Loop> loop_container_;  // 保存回环的数据  
-            std::deque<Edge> edge_container_;
-            std::deque<Vertex> vertex_container_;
+            std::deque<KeyFrame> keyframe_database_; // 保存全部关键帧的观测信息
+            std::deque<Edge> edge_container_; // 保存图节点
+            std::deque<Vertex> vertex_container_; // 保存图的边
     }; // class 
 } // namespace 

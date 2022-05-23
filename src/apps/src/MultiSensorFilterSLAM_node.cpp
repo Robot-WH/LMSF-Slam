@@ -110,7 +110,7 @@ bool SaveDataService(liv_slam::SaveDataRequest& req, liv_slam::SaveDataResponse&
 {
     std::string directory = req.destination;
     System->SavePoseGraph();  
-    std::cout<<"Save Graph Data success! path: "<< directory <<std::endl;
+    std::cout<<"Save Graph Data success! "<<std::endl;
     res.success = true; 
 }
 
@@ -205,8 +205,8 @@ visualization_msgs::MarkerArray createMarkerArray(KeyFrameInfo<PointT> const& in
     traj_marker.pose.orientation.w = 1.0;
     traj_marker.scale.x = traj_marker.scale.y = traj_marker.scale.z = 0.5;
 
-    // std::cout<<"info.keyframe_database_.size(): "<<info.keyframe_database_.size()<<std::endl;
-    // std::cout<<"info.local_opt_keyframes_.size(): "<<info.local_opt_keyframes_.size()<<std::endl;
+    // std::cout<<"info.vertex_database_.size(): "<<info.vertex_database_.size()<<std::endl;
+    // std::cout<<"info.edge_database_.size(): "<<info.edge_database_.size()<<std::endl;
     // std::cout<<"info.new_keyframes_.size(): "<<info.new_keyframes_.size()<<std::endl;
     // 数量
     traj_marker.points.resize(info.vertex_database_.size() + 
@@ -353,18 +353,19 @@ visualization_msgs::MarkerArray createMarkerArray(KeyFrameInfo<PointT> const& in
     sphere_marker.ns = "Odom Error";
     sphere_marker.id = 3;
     sphere_marker.type = visualization_msgs::Marker::SPHERE;
+    if (!info.new_keyframes_.empty()) 
+    {
+        Eigen::Vector3d pos = (trans_odom2map * info.new_keyframes_.back().odom_).translation();
+        sphere_marker.pose.position.x = pos.x();
+        sphere_marker.pose.position.y = pos.y();
+        sphere_marker.pose.position.z = pos.z();
 
-    Eigen::Vector3d pos = info.new_keyframes_.back().correct_pose_.translation();
-    sphere_marker.pose.position.x = pos.x();
-    sphere_marker.pose.position.y = pos.y();
-    sphere_marker.pose.position.z = pos.z();
+        sphere_marker.pose.orientation.w = 1.0;
+        sphere_marker.scale.x = sphere_marker.scale.y = sphere_marker.scale.z = 100;
 
-    sphere_marker.pose.orientation.w = 1.0;
-    sphere_marker.scale.x = sphere_marker.scale.y = sphere_marker.scale.z = 100;
-
-    sphere_marker.color.r = 1.0;
-    sphere_marker.color.a = 0.3;
-
+        sphere_marker.color.r = 1.0;
+        sphere_marker.color.a = 0.3;
+    }
     return markers;
 }
 // 读取估计结果的线程 

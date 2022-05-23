@@ -19,7 +19,6 @@
 #include "Common/pose.hpp"
 #include "Common/color.hpp"
 #include "Common/keyframe_updater.hpp"
-//#include "BackEnd/backend.hpp"
 #include "BackEnd/backend_lifelong.hpp"
 
 namespace Slam3D {
@@ -110,7 +109,7 @@ namespace Slam3D {
                 // 数据管理器注册
                 DataManager::GetInstance().Registration<MultiLidarResultInfo<_FeatureT>>("frontend_info", 1); 
                 // 加载历史数据库
-                LoadPoseGraph();
+                SystemLoad();
             }
             ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
             /**
@@ -174,10 +173,11 @@ namespace Slam3D {
             
             /**
              * @brief: 加载数据 
-             * @details:  1、加载位姿图  2、加载位姿点云  3、加载场景识别数据库  
+             * @details:  1、后端加载   2、回环加载 
              */            
-            void LoadPoseGraph()
+            void SystemLoad()
             {
+                backend_->Load();  
                 loop_detect_->Load(database_save_path_); // 加载场景识别数据库 
             }
 

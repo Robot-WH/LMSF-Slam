@@ -1,10 +1,8 @@
 /*
  * @Copyright(C): Your Company
  * @FileName: 文件名
- * @Author: 作者
- * @Version: 版本
- * @Date: 2021-11-23 17:14:36
- * @Description: 基础工具 
+ * @Author: lwh
+ * @Description: 
  * @Others: 
  */
 

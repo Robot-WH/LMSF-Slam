@@ -31,7 +31,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: PointCloud2
+    SyncSource: ""
 Preferences:
   PromptSaveOnExit: true
 Toolbars:
@@ -62,35 +62,13 @@ Visualization Manager:
       Frame Timeout: 50
       Frames:
         All Enabled: true
-        base_link:
-          Value: true
-        camera_color_left:
-          Value: true
-        camera_color_right:
-          Value: true
-        camera_gray_left:
-          Value: true
-        camera_gray_right:
-          Value: true
-        imu_link:
-          Value: true
-        lidar_0:
-          Value: true
-        map:
-          Value: true
-        velo_link:
-          Value: true
-        world:
-          Value: true
       Marker Scale: 5
       Name: TF
       Show Arrows: true
       Show Axes: true
       Show Names: true
       Tree:
-        map:
-          lidar_0:
-            {}
+        {}
       Update Interval: 0
       Value: true
     - Alpha: 1
@@ -240,6 +218,7 @@ Visualization Manager:
       Marker Topic: /graph_markers
       Name: MarkerArray
       Namespaces:
+        Odom Error: true
         edges: true
         nodes: true
       Queue Size: 100
@@ -450,7 +429,7 @@ Visualization Manager:
   Value: true
   Views:
     Current:
-      Angle: -1.284999966621399
+      Angle: -1.4949997663497925
       Class: rviz/TopDownOrtho
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
@@ -460,11 +439,11 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Scale: 4.205835819244385
+      Scale: 2.2195537090301514
       Target Frame: lidar_0
       Value: TopDownOrtho (rviz)
-      X: -88.25040435791016
-      Y: 12.251158714294434
+      X: 175.55120849609375
+      Y: -0.6387941837310791
     Saved: ~
 Window Geometry:
   Displays:

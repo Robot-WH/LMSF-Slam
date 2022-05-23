@@ -20,7 +20,7 @@
 namespace Slam3D
 {
   /**
-   * @brief KeyFrame (pose node)
+   * @brief KeyFrame  主要保存关键帧的各种观测信息
    */
   class KeyFrame 
   {
@@ -35,7 +35,7 @@ namespace Slam3D
 
       virtual ~KeyFrame() {}
 
-      void save(const std::string& directory)
+      void Save(const std::string& directory)
       {
         if (!boost::filesystem::is_directory(directory)) {
           boost::filesystem::create_directory(directory);
@@ -44,29 +44,37 @@ namespace Slam3D
         std::ofstream ofs(directory + "/KeyFrameData/data_" + std::to_string(id_));
         ofs << "stamp " << time_stamp_<< "\n";
 
-        ofs << "pose\n";
-        ofs << correct_pose_.matrix() << "\n";
-
-        // if(floor_coeffs) {
-        //   ofs << "floor_coeffs " << floor_coeffs->transpose() << "\n";
-        // }
-
-        // if(utm_coord) {
-        //   ofs << "utm_coord " << utm_coord->transpose() << "\n";
-        // }
-
-        // if(acceleration) {
-        //   ofs << "acceleration " << acceleration->transpose() << "\n";
-        // }
-
-        // if(orientation) {
-        //   ofs << "orientation " << orientation->w() << " " << orientation->x() << " " << orientation->y() << " " << orientation->z() << "\n";
-        // }
-
         ofs << "id " << id_ << "\n";
-        
+
+        ofs << "odom\n";
+        ofs << odom_.matrix() << "\n";
+  
+        if (utm_coord_)
+        {
+          ofs << "utm_coord\n";
+          ofs << utm_coord_->transpose() << "\n";
+        }
+        if (floor_coeffs_)
+        {
+          ofs << "floor_coeffs\n";
+          ofs << floor_coeffs_->transpose() << "\n";
+        }
+        if (acceleration_)
+        {
+          ofs << "acceleration\n";
+          ofs << acceleration_->transpose() << "\n";
+        }
+        if (orientation_)
+        {
+          ofs << "orientation\n";
+          ofs << orientation_->w() << " " << orientation_->x() << " " << orientation_->y() << " " << orientation_->z() << "\n";
+        }
       }
-      // bool load(const std::string& directory, g2o::HyperGraph* graph);
+
+      bool Load(const std::string& directory)
+      {
+
+      }
       /**
        * @brief: id 是和保存在硬盘中的点云数据标签一致的
        */      
@@ -80,11 +88,11 @@ namespace Slam3D
       double time_stamp_ = 0.0;                                // timestamp
       uint32_t id_ = 0;   // 对应点云文件  在文件夹中的标识    以及   节点
       Eigen::Isometry3d odom_ = Eigen::Isometry3d::Identity();     // odometry (estimated by scan_matching_odometry)   
-      Eigen::Isometry3d correct_pose_ = Eigen::Isometry3d::Identity();       // Map系下被校正后的坐标  
       Eigen::Isometry3d between_constraint_ = Eigen::Isometry3d::Identity();  // 与上一个关键帧的相对约束   
       boost::optional<Eigen::Vector4d> floor_coeffs_;   // detected floor's coefficients    地面信息 
-      Eigen::Vector3d utm_coord_ = {0, 0, 0};                       // UTM coord obtained by GPS    UTM坐标   
-      Eigen::Quaterniond orientation_ = Eigen::Quaterniond::Identity();               // imu测得的激光姿态
+      boost::optional<Eigen::Vector3d> utm_coord_;                       // UTM coord obtained by GPS    UTM坐标   
+      boost::optional<Eigen::Vector3d> acceleration_;                       // UTM coord obtained by GPS    UTM坐标   
+      boost::optional<Eigen::Quaterniond> orientation_;               // imu测得的激光姿态
       bool gnss_matched_ = false;  
       bool GNSS_valid_ = false;  // 是否使用GNSS 观测
       bool IMU_valid_ = false;     // 是否使用IMU姿态观测 
