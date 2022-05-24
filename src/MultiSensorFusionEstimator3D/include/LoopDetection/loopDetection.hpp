@@ -213,6 +213,30 @@ namespace Slam3D
             void Load(std::string const& path)
             {
                 scene_recognizer_.Load(path); 
+                pcl::PointCloud<pcl::PointXYZ>::Ptr keyframe_position_cloud;
+                keyframe_position_cloud = PoseGraphDataBase::GetInstance().GetKeyFramePositionCloud();
+                if (!keyframe_position_cloud->empty()) {
+                    kdtreeHistoryKeyPoses->setInputCloud(keyframe_position_cloud);
+                    std::cout<<common::GREEN<<"位置点云KDTREE初始化完成!"<<common::RESET<<std::endl;
+                }
+            }
+
+            /**
+             * @brief: 在历史关键帧中查找位置与给定目标接近的
+             * @details: 
+             * @return 查找到的数量 
+             */            
+            int HistoricalPositionSearch(pcl::PointXYZ const& pos, double const& max_search_dis,
+                                                                                        uint16_t const& max_search_num, std::vector<int> &search_ind,
+                                                                                        std::vector<float> &search_dis)
+            {   
+                if (max_search_dis <= 0) {
+                    // KNN搜索
+                    return kdtreeHistoryKeyPoses->nearestKSearch(pos, max_search_num, search_ind, search_dis); 
+                } 
+                // 在历史关键帧中查找与当前关键帧距离小于阈值的集合  
+                return kdtreeHistoryKeyPoses->radiusSearch(pos, max_search_dis, search_ind, search_dis, 
+                                                                                                max_search_num); 
             }
 
         protected:

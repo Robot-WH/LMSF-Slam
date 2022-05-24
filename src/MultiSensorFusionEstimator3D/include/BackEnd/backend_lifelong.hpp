@@ -40,7 +40,11 @@ namespace Slam3D {
                 MAPPING
             };
             using base = BackEndOptimizationBase<_FeatureT>; 
-            using KeyFramePtr = typename base::KeyFramePtr; 
+            using PointCloudConstPtr = typename pcl::PointCloud<_FeatureT>::ConstPtr;  
+            using SourceT = std::pair<std::string, PointCloudConstPtr>;     // 匹配源类型    <id, 数据>
+            using RegistrationAdapterPtr = std::unique_ptr<RegistrationAdapterBase< 
+                SourceT, FeaturePointCloudContainer<_FeatureT>>>;   
+
             uint32_t KF_index_ = 0;  
             // 局部优化每次处理的最大帧数  
             int max_keyframes_per_update_ = 10;
@@ -52,6 +56,8 @@ namespace Slam3D {
             std::shared_ptr<loopDetection<_FeatureT>> loop_detect_ = nullptr;  
             // 优化器
             std::unique_ptr<GraphOptimizerInterface> optimizer_;  
+            // 定位匹配
+            RegistrationAdapterPtr localize_registration_;
             // 后端处理线程
             std::thread backend_thread_;  
             uint16_t new_external_constranit_num_;  // 新加的外部约束数量(GPS，地面, IMU..)  决定是否要进行一次全局优化  
@@ -66,6 +72,12 @@ namespace Slam3D {
                     optimizer_ = std::make_unique<G2oGraphOptimizer>(); 
                 } else if (optimizer_type == "ceres") {
                 }
+                // 将定位匹配算法默认设置为NDT 
+                NdtOmpPtr<_FeatureT> ndt = make_ndtOmp<_FeatureT>(1.0, 0.01, 
+                    0.1, 30, 4, "DIRECT1");  
+                localize_registration_.reset(
+                    new RegistrationAdapterImpl<SourceT, FeaturePointCloudContainer<_FeatureT>, 
+                        pcl::Registration<_FeatureT, _FeatureT>>(std::move(ndt), POINTS_PROCESSED_NAME));  
 
                 backend_thread_ = std::thread(&LifeLongBackEndOptimization::process, this);  // 启动线程   
                 // 数据注册   
@@ -105,7 +117,7 @@ namespace Slam3D {
                                                         Eigen::Isometry3d const& odom, 
                                                         Eigen::Isometry3d const& between_constraint) override
             {
-                // assert(loop_detect_ != nullptr);    // 检查回环模块是否被初始化
+                assert(loop_detect_ != nullptr);    // 检查回环模块是否被初始化
                 static double last_keyframe_t = -1;
                 // 检查时间戳 看是否乱序    
                 if (lidar_data.time_stamp_ <= last_keyframe_t)
@@ -135,6 +147,7 @@ namespace Slam3D {
                 } else if (work_mode == LOCALIZATION) {
                     // 定位如果丢失，若开启增量建图 incremental mapping 则会进行建图，否则进入重定位模式 
                     std::cout<<common::GREEN<<"-----------------LOCALIZATION!-----------------"<<std::endl;
+                    localization(lidar_data, odom); 
                 } else if (work_mode == MAPPING) {
                     mapping(lidar_data, odom, between_constraint);
                 }
@@ -181,9 +194,55 @@ namespace Slam3D {
             
             /**
              * @brief: 定位模式 
+             * @details 1、通过位姿点云查找距离当前帧最近的历史关键帧
+             *                      2、通过广度优先搜索查找节点的相邻帧，并拼接成local map
+             *                      3、执行scan-map匹配，求取odom-map校正矩阵         
+             *                      4、匹配评估
              */            
-            void localization()
+            void localization(CloudContainer<_FeatureT> const& lidar_data, 
+                                                Eigen::Isometry3d const& odom)
             {
+                assert(loop_detect_ != nullptr);    // 检查回环模块是否被初始化
+                TicToc tt;  
+                Eigen::Isometry3d pose_in_map = base::trans_odom2map_ * odom;  
+                pcl::PointXYZ curr_pos(pose_in_map.translation().x(), 
+                                                                pose_in_map.translation().y(), 
+                                                                pose_in_map.translation().z());
+                std::vector<int> search_ind;
+                std::vector<float> search_dis;
+                loop_detect_->HistoricalPositionSearch(curr_pos, 0, 1, search_ind, search_dis);   // 搜索最近的一个历史关键帧
+                if (!search_ind.empty()) 
+                {
+                    /**
+                     * @todo 检查距离是否太远
+                     */
+
+                    // 将定位所需要的点云local map 提取出来 
+                    for (auto const& name : localize_registration_->GetUsedPointsName())
+                    {   // 从数据库中查找 名字为 name 的点云 
+                        typename pcl::PointCloud<_FeatureT>::Ptr local_map(new pcl::PointCloud<_FeatureT>());
+                        if (!PoseGraphDataBase::GetInstance().GetAdjacentLinkNodeLocalMap<_FeatureT>(
+                            search_ind[0], 5, name, local_map))
+                        {
+                            std::cout<<common::RED<<"ERROR: can't find localized local map "
+                            <<name<<common::RESET<<std::endl;
+                            return;  
+                        }
+                        localize_registration_->SetInputSource(std::make_pair(name, local_map)); 
+                    }
+                    localize_registration_->SetInputTarget(lidar_data.pointcloud_data_);
+                    if (!localize_registration_->Registration(pose_in_map)) {
+                        std::cout<<common::RED<<"ERROR: localized can't convergence"<<common::RESET<<std::endl;
+                        return;  
+                    }
+                    tt.toc("localization ");
+                    // 匹配评估
+
+                    base::trans_odom2map_ = pose_in_map * odom.inverse();  
+                    DataManager::GetInstance().AddData("odom_to_map", base::trans_odom2map_);      // 发布坐标变换
+                } else {
+                    std::cout<<common::RED<<"not find"<<std::endl;
+                }
             }
 
             /**

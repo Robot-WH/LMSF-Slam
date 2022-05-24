@@ -221,6 +221,7 @@ namespace Slam3D
                                                                         // 最后结点的最大叶子数   即kdtree最后一个结点包含元素的最大个数
                                                                         10 )); 
                     tt.toc("build scan-context kdtree ");
+                    std::cout<<common::GREEN<<"位置识别数据库加载完成!"<<common::RESET<<std::endl;
                 }
                 return; 
             }

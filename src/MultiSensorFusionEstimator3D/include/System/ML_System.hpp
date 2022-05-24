@@ -144,9 +144,14 @@ namespace Slam3D {
                     processors_[id]->Process(data.all_lidar_data[i].second, all_cloud_data[id]);  
                     all_cloud_data[id].time_stamp_ = t; 
                     // 如果 没有 POINTS_PROCESSED_NAME的点云  那么需要将 原点云(仅经过预处理)的点云加入
+                    // 意义在于 POINTS_PROCESSED_NAME 代表经过预处理后的原始点云，这部分点云是有理由被保存下来的，
+                    // 比如后端 可能 要利用原始点云进行回环、重定位，匹配评估等等，构建的地图也需要尽可能保存更多的点
                     if (all_cloud_data[id].pointcloud_data_.find(POINTS_PROCESSED_NAME) 
                             == all_cloud_data[id].pointcloud_data_.end())
-                    {
+                    {   
+                        // 注意  这里虽然添加了 POINTS_PROCESSED_NAME 的点云，但是 在拷贝过程当中，
+                        // 实际上将点云类型 从 _PointT 改为了 _FeatureT
+                        // 因此传入到后端的数据全部是 _FeatureT 类型的点云
                         typename pcl::PointCloud<_FeatureT>::Ptr points_ptr(new pcl::PointCloud<_FeatureT>());
                         pcl::copyPointCloud(data.all_lidar_data[i].second.point_cloud, *points_ptr); 
                         all_cloud_data[id].pointcloud_data_[POINTS_PROCESSED_NAME] = points_ptr;  
