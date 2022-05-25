@@ -49,8 +49,6 @@ namespace Slam3D
             uint32_t kdtree_size_ = 0;  
             pcl::KdTreeFLANN<pcl::PointXYZ>::Ptr kdtreeHistoryKeyPoses;  // 历史关键帧的位姿kdtree 
             std::thread loop_thread_;  
-            NdtOmpPtr<_PointType> rough_ndt_ptr_;   // 粗匹配ndt
-            NdtOmpPtr<_PointType> refine_ndt_ptr_;   // 细匹配ndt  
 
             RegistrationAdapterPtr rough_registration_;
             RegistrationAdapterPtr refine_registration_;
@@ -165,29 +163,29 @@ namespace Slam3D
                     res.first = -1;
                     return res;  
                 }
-                // step3 检验   使用数据处理后的全部点云进行检验 而非特征
+                // step3 检验   
                 typename pcl::PointCloud<_PointType>::Ptr local_map(new pcl::PointCloud<_PointType>());
-                // 检验需要的是  POINTS_PROCESSED_NAME 的点云 
-                if (owned_localmap.find(POINTS_PROCESSED_NAME) != owned_localmap.end()) {
-                    local_map = owned_localmap[POINTS_PROCESSED_NAME];  
+                std::string required_name = align_evaluator_.GetTargetName();    // 获取检验模块需要的点云标识名
+                if (owned_localmap.find(required_name) != owned_localmap.end()) {
+                    local_map = owned_localmap[required_name];  
                 } else {  // 如果之前没有构造出 POINTS_PROCESSED_NAME 的local map 那么这里构造
                     if (!poseGraph_database.GetAdjacentLinkNodeLocalMap<_PointType>(
-                        res.first, 5, POINTS_PROCESSED_NAME, local_map)) {
+                        res.first, 5, required_name, local_map)) {
                         res.first = -1;
                         return res;  
                     }
                 }
                 align_evaluator_.SetTargetPoints(local_map); 
-                double score = align_evaluator_.AlignmentScore(scan_in.at(POINTS_PROCESSED_NAME), 
+                std::pair<double, double> eva = align_evaluator_.AlignmentScore(scan_in.at(required_name), 
                                                                                                                         res.second.matrix().cast<float>(), 0.1, 0.6); 
                 tt.toc("Relocalization ");
-                // score的物理意义 是 平均平方残差
-                if (score > 0.05) {
+                // score的物理意义 是 均方残差
+                if (eva.first > 0.05) {
                     res.first = -1;
                     return res;  
                 }
                 std::cout << common::GREEN<<"relocalization success!"<<std::endl;
-                std::cout << common::GREEN<<"score: "<<score<<std::endl;
+                std::cout << common::GREEN<<"score: "<<eva.first<<std::endl;
                 return res;  
             }
 
@@ -217,7 +215,8 @@ namespace Slam3D
                 keyframe_position_cloud = PoseGraphDataBase::GetInstance().GetKeyFramePositionCloud();
                 if (!keyframe_position_cloud->empty()) {
                     kdtreeHistoryKeyPoses->setInputCloud(keyframe_position_cloud);
-                    std::cout<<common::GREEN<<"位置点云KDTREE初始化完成!"<<common::RESET<<std::endl;
+                    std::cout<<common::GREEN<<"位置点云KDTREE初始化完成! 数量："<<keyframe_position_cloud->size()
+                    <<common::RESET<<std::endl;
                 }
             }
 
@@ -342,61 +341,6 @@ namespace Slam3D
                             poseGraph_database.SearchVertexPose(res.first, historical_pose);
                             res.second = historical_pose * res.second;    // 位姿初始值
                         }
-                        // 进行匹配  
-                        // 粗匹配 + 细匹配的模式 
-                        // // 去数据库中读取点云构造local map用于匹配  
-                        // typename pcl::PointCloud<_PointType>::Ptr local_map(new pcl::PointCloud<_PointType>());
-                        // if (!poseGraph_database.GetAdjacentLinkNodeLocalMap<_PointType>(res.first, 5, 
-                        //                                                                                                                                             "filtered", local_map))
-                        // {
-                        //     std::chrono::milliseconds dura(50);
-                        //     std::this_thread::sleep_for(dura);
-                        //     continue;  
-                        // }
-                        // #if (LOOP_DEBUG == 1)
-                        //     pcl::io::savePCDFileBinary("/home/lwh/code/lwh_ws-master/src/liv_slam-master/slam_data/point_cloud/loop_localmap.pcd"
-                        //                                                                 , *local_map);
-                        // #endif
-                        // tt.toc("build local map ");
-                        // // 当前点云
-                        // typename pcl::PointCloud<_PointType>::Ptr curr_points(new pcl::PointCloud<_PointType>());
-                        // poseGraph_database.GetKeyFramePointCloud<_PointType>("filtered", 
-                        //                                                                                                                                 curr_keyframe_.id_, 
-                        //                                                                                                                                 curr_points);
-                        
-
-                        // rough_ndt_ptr_->setInputTarget(local_map);
-                        // rough_ndt_ptr_->setInputSource(curr_points); 
-
-                        // typename pcl::PointCloud<_PointType>::Ptr aligned(new pcl::PointCloud<_PointType>());
-                        // tt.tic(); 
-                        // rough_ndt_ptr_->align(*aligned, res.second.matrix().cast<float>());  // 进行配准     predict_trans = setInputSource -> setInputTarget
-                        // // std::cout<<"GetFitnessScore :"<<GetFitnessScore()<<std::endl;
-                        // if (!rough_ndt_ptr_->hasConverged()) {
-                        //     std::cout<<common::RED<<"loop match un-converged!"<<std::endl;
-                        //     continue; 
-                        // }
-                        // // 对粗匹配进行评估 
-                        // // 回环first的点云
-                        // Eigen::Matrix4f T = rough_ndt_ptr_->getFinalTransformation();  
-                        // align_evaluator_.SetTargetPoints(local_map); 
-                        // // 1 m 一下为内点   内点占比至少为 0.8
-                        // double score = align_evaluator_.AlignmentScore(curr_points, T, 1, 0.7); 
-                        // std::cout << common::GREEN<<"loop match converged, score: "<< score<<std::endl;
-                        // if (score > 1)
-                        // {
-                        //     #if (LOOP_DEBUG == 1)
-                        //         static uint16_t bad_ind = 0; 
-                        //         typename pcl::PointCloud<_PointType>::Ptr res_points(new pcl::PointCloud<_PointType>());
-                        //         *res_points = *local_map + *aligned; 
-                        //         pcl::io::savePCDFileBinary("/home/lwh/code/lwh_ws-master/src/liv_slam-master/slam_data/point_cloud/bad_loop_res_"
-                        //                                                                 + std::to_string(bad_ind++) + ".pcd"
-                        //                                                                     , *res_points);
-                        //     #endif
-                        //     continue; 
-                        // }
-                        // tt.toc("loop rough match ");
-                        // tt.tic();  
                         // 粗匹配
                         std::unordered_map<std::string, typename pcl::PointCloud<_PointType>::Ptr> owned_localmap;  
                         FeaturePointCloudContainer<_PointType>  owned_curr_scan; 
@@ -459,20 +403,11 @@ namespace Slam3D
                             owned_curr_scan[POINTS_PROCESSED_NAME] = evaluative_curr_scan; 
                             evaluative_curr_scan = evaluative_curr_scan_temp;  
                         }
-                        double score = align_evaluator_.AlignmentScore(evaluative_curr_scan, 
+                        std::pair<double, double> eva = align_evaluator_.AlignmentScore(evaluative_curr_scan, 
                                                                                                                                 res.second.matrix().cast<float>(), 1, 0.6); 
-                        if (score > 1) {
+                        if (eva.first > 1) {
                             continue; 
                         }
-                        // 细匹配  
-                        // refine_ndt_ptr_->setInputTarget(local_map);
-                        // refine_ndt_ptr_->setInputSource(curr_points); 
-                        // refine_ndt_ptr_->align(*aligned, T);
-                        // if (!refine_ndt_ptr_->hasConverged()) {
-                        //     std::cout<<common::RED<<"loop refine match un-converged!"<<std::endl;
-                        //     continue; 
-                        // }
-                        // T = refine_ndt_ptr_->getFinalTransformation();  
                         // 将细匹配所需要的点云提取出来 
                         for (auto const& name : refine_registration_specific_name_)
                         {
@@ -508,9 +443,9 @@ namespace Slam3D
                             continue; 
                         }
                         // 对细匹配进行评估
-                        score = align_evaluator_.AlignmentScore(evaluative_curr_scan, res.second.matrix().cast<float>(), 0.1, 0.6); 
-                        std::cout << common::GREEN<<"loop refine match converged, score: "<< score<<std::endl;
-                        if (score > 0.05)
+                        eva = align_evaluator_.AlignmentScore(evaluative_curr_scan, res.second.matrix().cast<float>(), 0.1, 0.6); 
+                        std::cout << common::GREEN<<"loop refine match converged, score: "<< eva.first<<std::endl;
+                        if (eva.first > 0.05)
                         {
                             continue;  
                         }

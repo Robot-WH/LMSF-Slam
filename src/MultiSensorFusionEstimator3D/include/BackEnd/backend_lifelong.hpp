@@ -51,13 +51,15 @@ namespace Slam3D {
             int planeConstraint_optimize_freq_ = 5;
             bool enable_GNSS_optimize_ = false;  
             bool enable_planeConstraint_optimize_ = false;
-            bool enable_incremental_mapping_ = false;  // 开启增量建图 
+            bool enable_map_update_ = true;  // 开启地图更新 
             // 回环模块 
             std::shared_ptr<loopDetection<_FeatureT>> loop_detect_ = nullptr;  
             // 优化器
             std::unique_ptr<GraphOptimizerInterface> optimizer_;  
             // 定位匹配
             RegistrationAdapterPtr localize_registration_;
+            // 匹配评估器
+            PointCloudAlignmentEvaluate<_FeatureT> align_evaluator_;
             // 后端处理线程
             std::thread backend_thread_;  
             uint16_t new_external_constranit_num_;  // 新加的外部约束数量(GPS，地面, IMU..)  决定是否要进行一次全局优化  
@@ -132,12 +134,12 @@ namespace Slam3D {
                     // 重定位
                     std::cout<<common::GREEN<<"-----------------RELOCALIZATION!-----------------"<<std::endl;
                     std::pair<int64_t, Eigen::Isometry3d> res = loop_detect_->Relocalization(lidar_data.pointcloud_data_); 
-                    // 重定位失败 ，若开启增量建图，则进行建图，否则延迟一下，继续重定位 
+                    // 重定位失败 ，若开启地图更新，此时会重新建立一条新的轨迹，否则延迟一下，继续重定位 
                     if (res.first == -1) {
-                        if (enable_incremental_mapping_) {
-                            work_mode = MAPPING; // 进入建图模式 
-                            std::cout<<common::YELLOW<<"-----------------RELOCALIZATION FAIL!-----------------"<<std::endl;
-                            std::cout<<common::GREEN<<"-----------------Begin Mapping !-----------------"<<std::endl;
+                        if (enable_map_update_) {
+                            // work_mode = MAPPING; // 进入建图模式 
+                            // std::cout<<common::YELLOW<<"-----------------RELOCALIZATION FAIL!-----------------"<<std::endl;
+                            // std::cout<<common::GREEN<<"-----------------Begin Mapping !-----------------"<<std::endl;
                         } 
                     } else {
                         work_mode = LOCALIZATION; // 进入定位模式 
@@ -197,7 +199,7 @@ namespace Slam3D {
              * @details 1、通过位姿点云查找距离当前帧最近的历史关键帧
              *                      2、通过广度优先搜索查找节点的相邻帧，并拼接成local map
              *                      3、执行scan-map匹配，求取odom-map校正矩阵         
-             *                      4、匹配评估
+             *                      4、匹配评估，并根据结果进行模式切换
              */            
             void localization(CloudContainer<_FeatureT> const& lidar_data, 
                                                 Eigen::Isometry3d const& odom)
@@ -211,12 +213,10 @@ namespace Slam3D {
                 std::vector<int> search_ind;
                 std::vector<float> search_dis;
                 loop_detect_->HistoricalPositionSearch(curr_pos, 0, 1, search_ind, search_dis);   // 搜索最近的一个历史关键帧
+
                 if (!search_ind.empty()) 
                 {
-                    /**
-                     * @todo 检查距离是否太远
-                     */
-
+                    std::unordered_map<std::string, typename pcl::PointCloud<_FeatureT>::Ptr> owned_localmap;  
                     // 将定位所需要的点云local map 提取出来 
                     for (auto const& name : localize_registration_->GetUsedPointsName())
                     {   // 从数据库中查找 名字为 name 的点云 
@@ -229,6 +229,7 @@ namespace Slam3D {
                             return;  
                         }
                         localize_registration_->SetInputSource(std::make_pair(name, local_map)); 
+                        owned_localmap[name] = local_map; 
                     }
                     localize_registration_->SetInputTarget(lidar_data.pointcloud_data_);
                     if (!localize_registration_->Registration(pose_in_map)) {
@@ -236,13 +237,42 @@ namespace Slam3D {
                         return;  
                     }
                     tt.toc("localization ");
+                    tt.tic(); 
                     // 匹配评估
-
+                    typename pcl::PointCloud<_FeatureT>::Ptr local_map(new pcl::PointCloud<_FeatureT>());
+                    std::string required_name = align_evaluator_.GetTargetName();    // 获取检验模块需要的点云标识名
+                    if (owned_localmap.find(required_name) != owned_localmap.end()) {
+                        local_map = owned_localmap[required_name];  
+                    } else {  
+                        if (!PoseGraphDataBase::GetInstance().GetAdjacentLinkNodeLocalMap<_FeatureT>(
+                            search_ind[0], 5, required_name, local_map)) {
+                                std::cout<<common::RED<<"no evaluator local map !"<<std::endl;
+                                return;  
+                        }
+                    }
+                    align_evaluator_.SetTargetPoints(local_map);      // 0-15ms 
+                    std::pair<double, double> res = align_evaluator_.AlignmentScore(lidar_data.pointcloud_data_.at(required_name), 
+                                                                                                                            pose_in_map.matrix().cast<float>(), 0.1, 0.5); // 0-10ms 
+                    tt.toc("evaluate ");                                                                                                          
+                    std::cout<<"score: "<<res.first<<std::endl;
+                    std::cout<<"overlap_ratio: "<<res.second<<std::endl;
+                    // 若重叠率很低 < 0.5，得分会 远远大于1， 那么认为定位丢失，此时进行重定位
+                    if (res.first > 1) // 进行重定位
+                    {
+                        work_mode = RELOCALIZATION;
+                        return;  
+                    }
+                    // 如果得分很低 <= 0.03  认为定位很好
+                    // 同时 若重叠率 < 0.9 且 > 0.5，则环境有变化，此时进行地图更新
+                    if (res.first <= 0.03 && res.second < 0.9 && res.second > 0.5)
+                    {   // 地图更新 
+                        if (enable_map_update_) {
+                            work_mode = MAPPING;
+                        }
+                    }
                     base::trans_odom2map_ = pose_in_map * odom.inverse();  
                     DataManager::GetInstance().AddData("odom_to_map", base::trans_odom2map_);      // 发布坐标变换
-                } else {
-                    std::cout<<common::RED<<"not find"<<std::endl;
-                }
+                } 
             }
 
             /**

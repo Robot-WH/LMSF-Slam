@@ -1,5 +1,5 @@
-#ifndef NMEA_SENTENCE_PARSER_HPP
-#define NMEA_SENTENCE_PARSER_HPP
+
+#pragma once 
 
 #include <cmath>
 #include <string>
@@ -101,6 +101,4 @@ public:
   }
 };
 
-
-#endif // NMEA_SENTENCE_PARSER_HPP
 

@@ -26,7 +26,17 @@ namespace Slam3D
         public:
             using Ptr = std::shared_ptr<PointCloudAlignmentEvaluate<_PointT>>;  
             PointCloudAlignmentEvaluate() : search_tree_(new pcl::KdTreeFLANN<_PointT>())
+                                                                                    , name_(POINTS_PROCESSED_NAME)  // 默认
             {
+            }
+            PointCloudAlignmentEvaluate(std::string const& name) : search_tree_(new pcl::KdTreeFLANN<_PointT>())
+                                                                                                                        , name_(name)  // 默认
+            {
+            }
+
+            inline std::string GetTargetName() const
+            {
+                return name_; 
             }
 
             void SetTargetPoints(typename pcl::PointCloud<_PointT>::ConstPtr const& cloud)
@@ -40,15 +50,15 @@ namespace Slam3D
              * @details: 
              * @param inlier_thresh 内点的距离阈值
              * @param inlier_ratio_thresh 
-             * @return 匹配得分  平方距离的均值   
+             * @return 匹配得分  平方距离的均值 , 重叠率
              */            
-            double AlignmentScore(typename pcl::PointCloud<_PointT>::ConstPtr const& cloud, 
-                                                                Eigen::Matrix4f const& relpose, 
-                                                                double const& inlier_thresh,
-                                                                double const& inlier_ratio_thresh) 
+            std::pair<double, double> AlignmentScore(typename pcl::PointCloud<_PointT>::ConstPtr const& cloud, 
+                                                                                                        Eigen::Matrix4f const& relpose, 
+                                                                                                        double const& inlier_thresh,
+                                                                                                        double const& inlier_ratio_thresh) 
             {
                 assert(set_target_ == true); 
-                if (cloud->empty()) return (std::numeric_limits<double>::max());
+                if (cloud->empty()) return std::pair<double, double>(std::numeric_limits<double>::max(), 0);
                 double fitness_score = 0.0;
                 pcl::PointCloud<_PointT> input_transformed;
                 // cloud 通过  relpose 转到  input_transformed  
@@ -56,7 +66,6 @@ namespace Slam3D
                 std::vector<int> nn_indices (1);
                 std::vector<float> nn_dists (1);
                 int nr = 0;
-
                 for (size_t i = 0; i < input_transformed.points.size(); ++i)
                 {
                     // Find its nearest neighbor in the target
@@ -66,19 +75,19 @@ namespace Slam3D
                     {
                         fitness_score += nn_dists[0];   // 只考虑距离合适的点   这样可以避免动态障碍的影响 
                         nr++;
-                    }
+                    } 
                 }
                 // 计算好点的占比   
                 overlap_ratio_ = (double) nr / input_transformed.points.size();
-                std::cout<<"overlap_ratio_: "<<overlap_ratio_<<std::endl;
                 // 如果内点数量不足        
                 if (overlap_ratio_ > inlier_ratio_thresh)    
-                    return (fitness_score / nr);          // 距离合适的点的平均距离   
+                    return std::pair<double, double>(fitness_score / nr, overlap_ratio_);          // 距离合适的点的平均距离   
                 else
-                    return (std::numeric_limits<double>::max());
+                    return std::pair<double, double>(std::numeric_limits<double>::max(), overlap_ratio_);
             }
 
         protected:
+            std::string name_;   // 评估点云的标识名 
             bool set_target_ = false;  
             double overlap_ratio_ = 0.0;    // 匹配的重合度 
             typename pcl::KdTreeFLANN<_PointT>::Ptr search_tree_;  

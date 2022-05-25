@@ -378,21 +378,29 @@ namespace Slam3D
              * @return 是否成功
              */            
             template<typename _PointT>
-            bool GetAdjacentLinkNodeLocalMap(uint32_t const& center_id, uint16_t const& neighbors_num, 
+            bool GetAdjacentLinkNodeLocalMap(uint64_t const& center_id, uint16_t const& neighbors_num, 
                                                                                         std::string const& points_name, 
                                                                                         typename pcl::PointCloud<_PointT>::Ptr &local_map)
             {
+                uint64_t keyframe_num = cloudKeyFramePosition3D_->size();  
                 pcl::PointCloud<_PointT> origin_points;   // 激光坐标系下的点云
                 pcl::PointCloud<_PointT> trans_points;   // 转换到世界坐标系下的点云 
                 for (int16_t i = -neighbors_num; i <= neighbors_num; i++ )
                 {
-                    if ((int64_t)center_id + i < 0) continue;  
+                    int64_t index = center_id + i;
+                    // 处理边界
+                    if (index < 0) {
+                        index += 2 * neighbors_num + 1;
+                    }
+                    if (index >= keyframe_num) {
+                        index -= (2 * neighbors_num + 1); 
+                    }
                     std::string file_path = database_save_path_ + "/KeyFramePoints/key_frame_" 
-                        + points_name + std::to_string(center_id + i) + ".pcd";
+                        + points_name + std::to_string(index) + ".pcd";
                     if (pcl::io::loadPCDFile(file_path, origin_points) < 0) return false; 
                     Eigen::Isometry3d pose;
                     // 如果没有查到该帧的位姿  那么就失败 
-                    if (!SearchVertexPose(center_id + i, pose)) {
+                    if (!SearchVertexPose(index, pose)) {
                         return false;  
                     }
                     pcl::transformPointCloud (origin_points, trans_points, pose.matrix()); // 转到世界坐标  
