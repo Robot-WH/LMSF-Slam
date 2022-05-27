@@ -30,6 +30,10 @@ namespace Slam3D
         prior_noise_ = noise;  
     }
 
+    void GtsamGraphOptimizer::Rebuild(std::deque<Vertex> const& vertexs, std::deque<Edge> const& edges)
+    {  
+    }
+
     /**
      * @brief: 
      * @details: 

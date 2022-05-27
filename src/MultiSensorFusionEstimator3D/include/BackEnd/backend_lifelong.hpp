@@ -45,7 +45,7 @@ namespace Slam3D {
             using RegistrationAdapterPtr = std::unique_ptr<RegistrationAdapterBase< 
                 SourceT, FeaturePointCloudContainer<_FeatureT>>>;   
 
-            uint32_t KF_index_ = 0;  
+            uint32_t KF_id_ = 0;  
             // 局部优化每次处理的最大帧数  
             int max_keyframes_per_update_ = 10;
             int planeConstraint_optimize_freq_ = 5;
@@ -101,6 +101,13 @@ namespace Slam3D {
                 }  
                 work_mode = RELOCALIZATION;   // 默认为建图模式 
                 std::cout<<common::GREEN<<"载入历史数据库，准备重定位......"<<std::endl;
+                // 重构图优化
+                optimizer_->Rebuild(PoseGraphDataBase::GetInstance().GetAllVertex(), 
+                                                            PoseGraphDataBase::GetInstance().GetAllEdge()); 
+                // 从优化器中读回节点位姿
+                for(int i=0; i < optimizer_->GetNodeNum(); i++) {
+                    PoseGraphDataBase::GetInstance().UpdateVertexPose(i, optimizer_->ReadOptimizedPose(i)); 
+                }
                 // 发布在载后的数据 
                 KeyFrameInfo<_FeatureT> keyframe_info; 
                 keyframe_info.vertex_database_ = PoseGraphDataBase::GetInstance().GetAllVertex(); 
@@ -137,9 +144,6 @@ namespace Slam3D {
                     // 重定位失败 ，若开启地图更新，此时会重新建立一条新的轨迹，否则延迟一下，继续重定位 
                     if (res.first == -1) {
                         if (enable_map_update_) {
-                            // work_mode = MAPPING; // 进入建图模式 
-                            // std::cout<<common::YELLOW<<"-----------------RELOCALIZATION FAIL!-----------------"<<std::endl;
-                            // std::cout<<common::GREEN<<"-----------------Begin Mapping !-----------------"<<std::endl;
                         } 
                     } else {
                         work_mode = LOCALIZATION; // 进入定位模式 
@@ -151,42 +155,48 @@ namespace Slam3D {
                     std::cout<<common::GREEN<<"-----------------LOCALIZATION!-----------------"<<std::endl;
                     localization(lidar_data, odom); 
                 } else if (work_mode == MAPPING) {
-                    mapping(lidar_data, odom, between_constraint);
+                    // 通过点云与里程计和累计距离等来创建关键帧   实际的关键帧中就可以不用包含点云数据了  
+                    KeyFrame keyframe(lidar_data.time_stamp_, odom, KF_id_);
+                    keyframe.adjacent_id_ = KF_id_ - 1;  
+                    keyframe.between_constraint_ = between_constraint;      // 获取该关键帧与上一关键帧之间的相对约束  last<-curr       
+                    mapping(keyframe, lidar_data.pointcloud_data_);
+                    KF_id_++;  
                 }
             }
             // 回环模块在system中初始化  再设置进来  
-            virtual void SetLoopDetection(std::shared_ptr<loopDetection<_FeatureT>> const& loop_detect) override {
+            void SetLoopDetection(std::shared_ptr<loopDetection<_FeatureT>> const& loop_detect) override {
                 loop_detect_ = loop_detect;  
+            }
+
+            // 强制执行一次全局优化   save的时候用
+            void ForceGlobalOptimaze() override {
+                optimizer_->Optimize();  
             }
 
         protected:
 
             /**
              * @brief: 建图模式
+             * @param keyframe 关键帧数据
+             * @param pointcloud_data 关键帧对应的点云
              */            
-            void mapping(CloudContainer<_FeatureT> const& lidar_data, 
-                                            Eigen::Isometry3d const& odom, 
-                                            Eigen::Isometry3d const& between_constraint)
+            void mapping(KeyFrame const& keyframe, FeaturePointCloudContainer<_FeatureT> pointcloud_data)
             {
                 // 线程锁开启
                 std::lock_guard<std::mutex> lock(base::keyframe_queue_mutex_); 
                 // 把关键帧点云存储到硬盘里     不消耗内存
-                // 如果未来维护关键帧包括关键帧的删除或替换的话 , 那么 KF_index_ 的也需要去维护 
-                for (auto iter = lidar_data.pointcloud_data_.begin(); 
-                            iter != lidar_data.pointcloud_data_.end(); ++iter) 
+                // 如果未来维护关键帧包括关键帧的删除或替换的话 , 那么 KF_id_ 的也需要去维护 
+                for (auto iter = pointcloud_data.begin(); iter != pointcloud_data.end(); ++iter) 
                 {  // 存到数据库中  
-                    PoseGraphDataBase::GetInstance().AddKeyFramePointCloud(iter->first, KF_index_, *(iter->second));
+                    PoseGraphDataBase::GetInstance().AddKeyFramePointCloud(iter->first, 
+                        keyframe.id_, *(iter->second));
                 }
-                // 通过点云与里程计和累计距离等来创建关键帧   实际的关键帧中就可以不用包含点云数据了  
-                KeyFrame keyframe(lidar_data.time_stamp_, odom, KF_index_);
-                keyframe.between_constraint_ = between_constraint;      // 获取该关键帧与上一关键帧之间的相对约束  last<-curr       
                 base::new_keyframe_queue_.push_back(keyframe);     // 加入处理队列
-                KF_index_++;
-                // 数据加入到回环模块进行处理
-                loop_detect_->AddData(lidar_data.pointcloud_data_);    // 点云
+                // 点云数据加入到回环模块进行处理
+                loop_detect_->AddData(pointcloud_data);    // 点云
                 // 将数据上传到数据管理器   供其他模块使用 
                 KeyFrameInfo<_FeatureT> keyframe_info; 
-                keyframe_info.time_stamps_ = lidar_data.time_stamp_;  
+                keyframe_info.time_stamps_ = keyframe.time_stamp_;  
                 keyframe_info.vertex_database_ = PoseGraphDataBase::GetInstance().GetAllVertex(); 
                 keyframe_info.edge_database_ = PoseGraphDataBase::GetInstance().GetAllEdge(); 
                 keyframe_info.new_keyframes_ = base::new_keyframe_queue_;  
@@ -267,6 +277,15 @@ namespace Slam3D {
                     if (res.first <= 0.03 && res.second < 0.9 && res.second > 0.5)
                     {   // 地图更新 
                         if (enable_map_update_) {
+                            KF_id_ = PoseGraphDataBase::GetInstance().ReadVertexNum();
+                            Eigen::Isometry3d front_pose; 
+                            PoseGraphDataBase::GetInstance().SearchVertexPose(search_ind[0], front_pose); 
+                            Eigen::Isometry3d relpose = front_pose.inverse() * pose_in_map; 
+                            KeyFrame keyframe(lidar_data.time_stamp_, odom, KF_id_);
+                            keyframe.adjacent_id_ = search_ind[0];  
+                            keyframe.between_constraint_ = relpose;      // 获取该关键帧与上一关键帧之间的相对约束  last<-curr       
+                            mapping(keyframe, lidar_data.pointcloud_data_);
+                            KF_id_++;  
                             work_mode = MAPPING;
                         }
                     }
@@ -299,8 +318,8 @@ namespace Slam3D {
                         tt.toc("update dataset ");
                         base::keyframe_queue_mutex_.lock();  
                         // 计算坐标转换矩阵
-                        base::trans_odom2map_ = database.GetLastVertex().pose_
-                            * database.GetLastKeyFrameData().odom_.inverse();  
+                        base::trans_odom2map_ = database.GetLastVertex().pose_ 
+                                                                                  * database.GetLastKeyFrameData().odom_.inverse();  
                         base::keyframe_queue_mutex_.unlock();  
                     }
                     std::chrono::milliseconds dura(1000);
@@ -328,12 +347,11 @@ namespace Slam3D {
                 {
                     // 从keyframe_queue中取出关键帧
                     auto& keyframe = base::new_keyframe_queue_[i];
-                    uint64_t id = PoseGraphDataBase::GetInstance().ReadVertexNum();
+                    uint64_t id = keyframe.id_;
                     Eigen::Isometry3d corrected_pose = base::trans_odom2map_ * keyframe.odom_; 
                     // 添加节点  
                     if (id == 0) {
                         // 第一个节点默认 fix
-                        //optimizer_->AddSe3Node(keyframe.correct_pose_, id, true);    
                         optimizer_->AddSe3Node(corrected_pose, id, true);
                         //  添加到数据库中   图优化中的node 和 数据库中的关键帧 序号是一一对应的
                         PoseGraphDataBase::GetInstance().AddKeyFrameData(keyframe);   
@@ -345,8 +363,9 @@ namespace Slam3D {
                     // 观测噪声
                     Eigen::Matrix<double, 1, 6> noise;
                     noise << 0.0025, 0.0025, 0.0025, 0.0001, 0.0001, 0.0001;
-                    optimizer_->AddSe3Edge(id - 1, id, keyframe.between_constraint_, noise);  
-                    PoseGraphDataBase::GetInstance().AddEdge(id - 1, id, keyframe.between_constraint_, noise);  
+                    optimizer_->AddSe3Edge(keyframe.adjacent_id_, id, keyframe.between_constraint_, noise);  
+                    PoseGraphDataBase::GetInstance().AddEdge(keyframe.adjacent_id_, id, 
+                                                                                                                  keyframe.between_constraint_, noise);  
 
                     // 与GNSS进行匹配 
                     // 寻找有无匹配的GPS   有则
@@ -419,10 +438,10 @@ namespace Slam3D {
                 for (uint16_t i = 0; i < new_loops.size(); i++) 
                 {
                     // 添加回环边
-                    Eigen::Matrix<double, 1, 6> noise;
-                    noise << 0.0025, 0.0025, 0.0025, 0.0001, 0.0001, 0.0001;
+                    // Eigen::Matrix<double, 1, 6> noise;
+                    // noise << 0.0025, 0.0025, 0.0025, 0.0001, 0.0001, 0.0001;
                     optimizer_->AddSe3Edge(new_loops[i].link_id_.first, new_loops[i].link_id_.second, 
-                                                                            new_loops[i].constraint_, noise);  
+                                                                            new_loops[i].constraint_, new_loops[i].noise_);  
                     // 回环数据记录到数据库中
                     PoseGraphDataBase::GetInstance().AddEdge(new_loops[i]); 
                     has_loop = true;   // 只要有回环就触发优化
@@ -439,11 +458,7 @@ namespace Slam3D {
                 {
                     TicToc tt;
                     if (!do_optimize && !has_loop) return false;  
-                    std::cout<<common::GREEN<<"Begin optimize! ------------------"
-                    <<common::RESET<<std::endl;
                     optimizer_->Optimize(has_loop);  
-                    std::cout<<common::GREEN<<"optimize done! ------------------"
-                    <<common::RESET<<std::endl;
                     tt.toc("optimize ");
                     has_loop = false; 
                     do_optimize = false;  

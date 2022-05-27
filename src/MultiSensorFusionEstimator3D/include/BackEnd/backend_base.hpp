@@ -51,6 +51,7 @@ namespace Slam3D {
                                                                         Eigen::Isometry3d const& between_constraint) = 0; 
             virtual void SetLoopDetection(std::shared_ptr<loopDetection<_FeatureT>> const& loop_detect) = 0; 
             virtual void Load() = 0; 
+            virtual void ForceGlobalOptimaze() = 0; 
         protected:
             virtual void process() = 0;     // 处理线程
             virtual bool optimize() = 0;  

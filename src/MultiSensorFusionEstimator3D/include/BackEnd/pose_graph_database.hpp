@@ -40,9 +40,9 @@ namespace Slam3D
             bool Save()
             {   // 保存keyframe信息 
                 assert(database_save_path_ != ""); 
-                for (uint64_t i = 0; i < keyframe_database_.size(); i++) {
-                    keyframe_database_[i].Save(database_save_path_);  
-                }
+                // for (uint64_t i = 0; i < keyframe_database_.size(); i++) {
+                //     keyframe_database_[i].Save(database_save_path_);  
+                // }
                 // 保存pose-graph
                 // 节点
                 for (uint64_t i = 0; i < vertex_container_.size(); i++) {
@@ -64,9 +64,9 @@ namespace Slam3D
             bool Load()
             {
                 assert(database_save_path_ != ""); 
-                if (!LoadKeyFrame()) {
-                    return false;
-                }
+                // if (!LoadKeyFrame()) {
+                //     return false;
+                // }
                 if (!LoadPoseGraph()) 
                 {
                     DataReset(); 
@@ -180,11 +180,12 @@ namespace Slam3D
                     }
                     vertex_container_.push_back(std::move(vertex));
                 }
-                if (vertex_container_.size() != keyframe_database_.size()) {
-                    std::cout<<common::RED<<
-                    "Load KetFrame ERROR: vertex num keyframe num not match,  vertex num: "
-                    <<vertex_container_.size()<<", keyframe num: "<<
-                    keyframe_database_.size()<<std::endl;
+                if (vertex_container_.size() == 0) 
+                {
+                    // std::cout<<common::RED<<
+                    // "Load KetFrame ERROR: vertex num keyframe num not match,  vertex num: "
+                    // <<vertex_container_.size()<<", keyframe num: "<<
+                    // keyframe_database_.size()<<std::endl;
                     return false;  
                 }
                 index = 0;  

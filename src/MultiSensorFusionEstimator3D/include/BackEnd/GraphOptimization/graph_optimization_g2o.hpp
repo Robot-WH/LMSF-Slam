@@ -58,6 +58,7 @@ namespace Slam3D
     {
     public:
         G2oGraphOptimizer(const std::string &solver_type = "lm_var");
+        void Rebuild(std::deque<Vertex> const& vertexs, std::deque<Edge> const& edges) override; 
         // 优化
         bool Optimize(uint8_t flag = 0) override;
         // 输出数据

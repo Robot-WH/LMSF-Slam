@@ -87,6 +87,7 @@ namespace Slam3D
       // 关键帧的数据结构
       double time_stamp_ = 0.0;                                // timestamp
       uint32_t id_ = 0;   // 对应点云文件  在文件夹中的标识    以及   节点
+      uint32_t adjacent_id_ = 0; // 上一个连接的关键帧 id 
       Eigen::Isometry3d odom_ = Eigen::Isometry3d::Identity();     // odometry (estimated by scan_matching_odometry)   
       Eigen::Isometry3d between_constraint_ = Eigen::Isometry3d::Identity();  // 与上一个关键帧的相对约束   
       boost::optional<Eigen::Vector4d> floor_coeffs_;   // detected floor's coefficients    地面信息 

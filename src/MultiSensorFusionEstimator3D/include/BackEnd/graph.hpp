@@ -8,7 +8,9 @@
  */
 
 #pragma once
+
 #include <Eigen/Dense>
+#include <boost/filesystem.hpp>
 
 namespace Slam3D {
 

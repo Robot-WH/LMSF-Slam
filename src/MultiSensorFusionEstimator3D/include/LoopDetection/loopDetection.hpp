@@ -466,6 +466,9 @@ namespace Slam3D
                         Eigen::Isometry3d historical_pose;
                         poseGraph_database.SearchVertexPose(res.first, historical_pose);
                         new_loop.constraint_ = historical_pose.inverse() * res.second;// T second -> first
+                        // Eigen::Matrix<double, 1, 6> noise;
+                        // noise << 0.0025, 0.0025, 0.0025, 0.0001, 0.0001, 0.0001;
+                        new_loop.noise_ << 0.0025, 0.0025, 0.0025, 0.0001, 0.0001, 0.0001;
                         loop_mt_.lock();
                         new_loops_.push_back(std::move(new_loop));  
                         loop_mt_.unlock();  

@@ -13,11 +13,13 @@
 #include <string>
 #include <deque>
 #include <Eigen/Dense>
+#include "../graph.hpp"
 
 namespace Slam3D {
 class GraphOptimizerInterface {
   public:
     virtual ~GraphOptimizerInterface() {}
+   virtual void Rebuild(std::deque<Vertex> const& vertexs, std::deque<Edge> const& edges) = 0; 
     // 优化
     virtual bool Optimize(uint8_t flag = 0) = 0;
     // 输入、输出数据

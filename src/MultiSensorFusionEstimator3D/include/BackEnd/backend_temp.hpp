@@ -125,6 +125,10 @@ namespace Slam3D {
                 loop_detect_->GetNewLoops();
             }
 
+            // 强制执行一次全局优化   save的时候用
+            void ForceGlobalOptimaze() override {
+            }
+
         protected:
 
             ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

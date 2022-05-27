@@ -1,9 +1,8 @@
 /*
  * @Copyright(C): Your Company
  * @FileName: 文件名
- * @Author: 作者
- * @Version: 版本
- * @Date: 2022-02-22 01:23:01
+ * @Author: lwh
+ * @Version: 1.0
  * @Description:  多激光SLAM系统: 负责SLAM 系统各个模块的管理、 调度 
  * @Others: 注：系统主要分为 数据处理、前端里程计、后端优化、回环检测 
  */
@@ -85,12 +84,10 @@ namespace Slam3D {
                   lidar_trackers_(std::move(lidar_tracker)),
                   NUM_OF_LIDAR_(NUM_OF_LIDAR)
             {
-                if (NUM_OF_LIDAR_ == 1) 
-                {
+                if (NUM_OF_LIDAR_ == 1) {
                     EXTRINSIC_ESTIMATE_ = 0;     // 不标定外参   
                 }
-                for (uint8_t i = 0; i < NUM_OF_LIDAR_; i++)
-                {
+                for (uint8_t i = 0; i < NUM_OF_LIDAR_; i++) {
                     pre_processors_.emplace_back(
                             new RotaryLidarPreProcess<_PointT>()); 
                 }
@@ -167,6 +164,7 @@ namespace Slam3D {
             // 数据保存
             void SavePoseGraph()
             {
+                backend_->ForceGlobalOptimaze();  
                 PoseGraphDataBase::GetInstance().Save();  
                 loop_detect_->Save(database_save_path_);     
             }

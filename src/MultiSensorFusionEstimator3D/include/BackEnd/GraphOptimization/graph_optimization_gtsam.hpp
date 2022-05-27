@@ -8,6 +8,7 @@
  * @Others: 
  */
 #pragma once 
+
 #include <gtsam/geometry/Rot3.h>
 #include <gtsam/geometry/Pose3.h>
 #include <gtsam/slam/PriorFactor.h>
@@ -42,6 +43,7 @@ namespace Slam3D
             uint64_t node_num_ = 0;  
         public:
             GtsamGraphOptimizer();
+            void Rebuild(std::deque<Vertex> const& vertexs, std::deque<Edge> const& edges) override; 
             // 优化
             bool Optimize(uint8_t flag = 0) override;
             // 输出数据
