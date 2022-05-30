@@ -458,11 +458,15 @@ namespace Slam3D
                                                                                     + std::to_string(ind++) + ".pcd"
                                                                                         , *res_points);
                         #endif
+                        // 回环后更新位姿kdtree   
+                        if (kdtree_size_ != keyframe_position_cloud->size()) {
+                            kdtreeHistoryKeyPoses->setInputCloud(keyframe_position_cloud);
+                            kdtree_size_ = keyframe_position_cloud->size();
+                        }
                         // 添加新增回环边
                         Edge new_loop; 
                         new_loop.link_id_.first = res.first;
                         new_loop.link_id_.second = curr_keyframe_.id_;
-
                         Eigen::Isometry3d historical_pose;
                         poseGraph_database.SearchVertexPose(res.first, historical_pose);
                         new_loop.constraint_ = historical_pose.inverse() * res.second;// T second -> first

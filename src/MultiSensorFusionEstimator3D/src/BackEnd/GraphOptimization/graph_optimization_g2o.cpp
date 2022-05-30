@@ -37,33 +37,16 @@ namespace Slam3D
         for (auto const& vertex : vertexs)
         {
             AddSe3Node(vertex.pose_, vertex.id_, need_fix); 
-            if (is_first) {
+            if (is_first) 
+            {
                 is_first = false; 
                 need_fix = false;  
             }
         }
-        std::deque<Edge> loops; 
-        for (auto const& edge : edges) 
-        {
-            if (edge.link_id_.second - edge.link_id_.first > 1)
-            { 
-                loops.push_back(edge); 
-                continue;  
-            }
-            std::cout<<"noise: "<<edge.noise_<<std::endl;
+        for (auto const& edge : edges) {
             AddSe3Edge(edge.link_id_.first, edge.link_id_.second, edge.constraint_, edge.noise_);  
         }   
-        for (auto const& loop : loops)
-        {
-            g2o::VertexSE3* v1 = dynamic_cast<g2o::VertexSE3*>(graph_ptr_->vertex(loop.link_id_.first));
-            g2o::VertexSE3* v2 = dynamic_cast<g2o::VertexSE3*>(graph_ptr_->vertex(loop.link_id_.second));
-            std::cout<<"loop.link_id_.first: "<<loop.link_id_.first<<" pose: "<<std::endl
-            <<v1->estimate().matrix()<<" loop.link_id_.second: "<<loop.link_id_.second<<" pose: "<<std::endl
-            <<v2->estimate().matrix() << " relpose: "<<std::endl<<v1->estimate().matrix().inverse() * v2->estimate().matrix()
-            <<", constraint_: "<<std::endl<<loop.constraint_.matrix()<<std::endl<<"noise: "<<loop.noise_<<std::endl;
-            AddSe3Edge(loop.link_id_.first, loop.link_id_.second, loop.constraint_, loop.noise_);  
-        }
-        Optimize();   // 优化一次 检测是否有误
+        Optimize();
     }
 
     bool G2oGraphOptimizer::Optimize(uint8_t flag) 

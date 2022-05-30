@@ -52,6 +52,7 @@ namespace Slam3D {
             bool enable_GNSS_optimize_ = false;  
             bool enable_planeConstraint_optimize_ = false;
             bool enable_map_update_ = true;  // 开启地图更新 
+            bool has_loop_ = false;  
             // 回环模块 
             std::shared_ptr<loopDetection<_FeatureT>> loop_detect_ = nullptr;  
             // 优化器
@@ -136,6 +137,7 @@ namespace Slam3D {
                     return;
                 }
                 last_keyframe_t = lidar_data.time_stamp_; 
+                
                 if (work_mode == RELOCALIZATION) 
                 {
                     // 重定位
@@ -167,14 +169,11 @@ namespace Slam3D {
             void SetLoopDetection(std::shared_ptr<loopDetection<_FeatureT>> const& loop_detect) override {
                 loop_detect_ = loop_detect;  
             }
-
             // 强制执行一次全局优化   save的时候用
             void ForceGlobalOptimaze() override {
                 optimizer_->Optimize();  
             }
-
         protected:
-
             /**
              * @brief: 建图模式
              * @param keyframe 关键帧数据
@@ -191,7 +190,7 @@ namespace Slam3D {
                     PoseGraphDataBase::GetInstance().AddKeyFramePointCloud(iter->first, 
                         keyframe.id_, *(iter->second));
                 }
-                base::new_keyframe_queue_.push_back(keyframe);     // 加入处理队列
+                base::new_keyframe_queue_.push_back(keyframe);     // 加入待处理队列
                 // 点云数据加入到回环模块进行处理
                 loop_detect_->AddData(pointcloud_data);    // 点云
                 // 将数据上传到数据管理器   供其他模块使用 
@@ -272,11 +271,12 @@ namespace Slam3D {
                         work_mode = RELOCALIZATION;
                         return;  
                     }
-                    // 如果得分很低 <= 0.03  认为定位很好
+                    // 如果得分很低 <= 0.04  认为定位很好
                     // 同时 若重叠率 < 0.9 且 > 0.5，则环境有变化，此时进行地图更新
-                    if (res.first <= 0.03 && res.second < 0.9 && res.second > 0.5)
+                    if (res.first <= 0.04 && res.second < 0.9 && res.second > 0.5)
                     {   // 地图更新 
-                        if (enable_map_update_) {
+                        if (enable_map_update_) 
+                        {
                             KF_id_ = PoseGraphDataBase::GetInstance().ReadVertexNum();
                             Eigen::Isometry3d front_pose; 
                             PoseGraphDataBase::GetInstance().SearchVertexPose(search_ind[0], front_pose); 
@@ -302,7 +302,8 @@ namespace Slam3D {
                 while(true)
                 {
                     // 数据处理 
-                    if (!processData()) {
+                    if (!processData()) 
+                    {
                         std::chrono::milliseconds dura(1000);
                         std::this_thread::sleep_for(dura);
                         continue;  
@@ -321,6 +322,10 @@ namespace Slam3D {
                         base::trans_odom2map_ = database.GetLastVertex().pose_ 
                                                                                   * database.GetLastKeyFrameData().odom_.inverse();  
                         base::keyframe_queue_mutex_.unlock();  
+                        if (has_loop_) {
+                            work_mode = LOCALIZATION; // 进入定位模式 
+                            has_loop_ = false;  
+                        }
                     }
                     std::chrono::milliseconds dura(1000);
                     std::this_thread::sleep_for(dura);
@@ -432,19 +437,16 @@ namespace Slam3D {
             bool optimize() override
             {
                 static bool do_optimize = false;  
-                static bool has_loop = false;  
                 // 提取所有新添加的回环数据
                 std::deque<Edge>  new_loops = loop_detect_->GetNewLoops();
                 for (uint16_t i = 0; i < new_loops.size(); i++) 
                 {
                     // 添加回环边
-                    // Eigen::Matrix<double, 1, 6> noise;
-                    // noise << 0.0025, 0.0025, 0.0025, 0.0001, 0.0001, 0.0001;
                     optimizer_->AddSe3Edge(new_loops[i].link_id_.first, new_loops[i].link_id_.second, 
                                                                             new_loops[i].constraint_, new_loops[i].noise_);  
                     // 回环数据记录到数据库中
                     PoseGraphDataBase::GetInstance().AddEdge(new_loops[i]); 
-                    has_loop = true;   // 只要有回环就触发优化
+                    has_loop_ = true;   
                 }
                 // 如果累计的外部约束超过10个  也触发一次优化 
                 if (new_external_constranit_num_ > 10) {
@@ -457,10 +459,9 @@ namespace Slam3D {
                 if (optimize_dormant <= 0)
                 {
                     TicToc tt;
-                    if (!do_optimize && !has_loop) return false;  
-                    optimizer_->Optimize(has_loop);  
+                    if (!do_optimize && !has_loop_) return false;  
+                    optimizer_->Optimize(has_loop_);  
                     tt.toc("optimize ");
-                    has_loop = false; 
                     do_optimize = false;  
                 } else {
                     optimize_dormant--;  

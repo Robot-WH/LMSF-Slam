@@ -39,17 +39,17 @@ target_link_libraries(ins_node ${catkin_LIBRARIES} ${ALL_TARGET_LIBRARIES})
 #                                             ${SLAM_LIBRARIES}
 #                                             )
 
-add_executable(MultiSensorFilterSLAM_node src/MultiSensorFilterSLAM_node.cpp)
-target_link_libraries(MultiSensorFilterSLAM_node 
+add_executable(MultiLidarSLAM_node src/MultiLidarSLAM_node.cpp)
+target_link_libraries(MultiLidarSLAM_node 
                                             ${catkin_LIBRARIES} 
                                             ${ALL_TARGET_LIBRARIES}
                                             ${SLAM_LIBRARIES}
 )
 
-# add_executable(MultiSensorFilterSLAM_node_temp src/MultiSensorFilterSLAM_node_temp.cpp)
-# target_link_libraries(MultiSensorFilterSLAM_node_temp 
-#                                             ${catkin_LIBRARIES} 
-#                                             ${ALL_TARGET_LIBRARIES}
-#                                             ${SLAM_LIBRARIES}
-# )
+add_executable(LidarImuGnssFusion_node src/LidarImuGnssFusion_node.cpp)
+target_link_libraries(LidarImuGnssFusion_node 
+                                            ${catkin_LIBRARIES} 
+                                            ${ALL_TARGET_LIBRARIES}
+                                            ${SLAM_LIBRARIES}
+)
                                             

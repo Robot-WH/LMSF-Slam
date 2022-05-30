@@ -1,10 +1,10 @@
+
 /*
  * @Copyright(C): Your Company
  * @FileName: 文件名
  * @Author: lwh
  * @Version: 1.0
- * @Date: 2022-01-27 16:32:54
- * @Description:  多传感器滤波器融合的激光SLAM系统
+ * @Description:  GNSS-IMU-LIDAR 滤波器融合的SLAM系统
  * @Others: 
  */
 
@@ -15,7 +15,7 @@
 #include "Common/parameters.h"
 #include "Common/keyframe.hpp"
 #include "Common/data_manager.hpp"
-#include "factory/System/ML_SystemFactory.hpp"
+#include "factory/System/LIG_SystemFactory.hpp"
 
 using namespace std;
 using namespace Algorithm;  
@@ -34,13 +34,11 @@ std::vector<std::string> lidar_topic_names = {"lidar_topic_0",
                                                                                               "lidar_topic_1" };  
 std::vector<std::string> lidar_frame_names = {"lidar_0", "lidar_1" };            // 多激光坐标                                                                                          
 std::vector<std::string> lidar_topic_container;   // 多激光话题名称容器  
+string imu_topic, gnss_topic;
 string public_topic = "undistortion_pointcloud";
 std::string odom_frame = "odom";
 
-std::queue<MultiLidarData<PointT>> all_cloud_buf;    // 原始点云缓存 
-std::mutex m_estimate;
-
-std::unique_ptr<MultiLidarSystem<PointT, PointT>> System;             // 估计器
+std::unique_ptr<LidarImuGnssFusionSystem<PointT, PointT>> System;             // 估计器
 
 ros::Publisher pubUndistortPoints;  
 std::vector<ros::Publisher> pubLidarFiltered;    // 发布每个激光滤波后的点   直接法时使用 
@@ -69,9 +67,15 @@ void InitParam(ros::NodeHandle &n)
     for (uint16_t i = 0; i < NUM_OF_LIDAR; i++) {
         lidar_topic_container.push_back(RosReadParam<string>(n, lidar_topic_names[i]));  
     }
-    MultiLidarSystemFactory<PointT, PointT> System_factory; 
+    // 读取 IMU、GNSS话题 
+    imu_topic = RosReadParam<string>(n, "imu_topic");
+    gnss_topic = RosReadParam<string>(n, "gnss_topic");
+    ROS_WARN("imu_topic:");
+    std::cout<<imu_topic<<std::endl;
+    ROS_WARN("gnss_topic:");
+    std::cout<<gnss_topic<<std::endl;
+    LidarImuGnssSystemFactory<PointT, PointT> System_factory; 
     System = System_factory.Create(config_path);   // 使用工厂函数构造估计器  
-    // deskew = std::unique_ptr<DeskewBase>(new DeskewBase(SCAN_PERIOD_));      
     if (System == nullptr) {
         std::cout<<common::RED<<"System construct failure!"<<std::endl;
     } else {
@@ -145,9 +149,7 @@ void dataProcessCallbackTwo(const sensor_msgs::PointCloud2ConstPtr &cloud0_msg,
     data.all_lidar_data.emplace_back(0, std::move(one_lidar_data));  
     one_lidar_data.point_cloud = getCloudFromMsg(cloud1_msg); 
     data.all_lidar_data.emplace_back(1, std::move(one_lidar_data));  
-    m_estimate.lock();
-    all_cloud_buf.push(std::move(data));  
-    m_estimate.unlock();
+    System->Process(data);     // 传入 
 }
 
 // 单激光的回调  
@@ -158,29 +160,61 @@ void dataProcessCallbackOne(const sensor_msgs::PointCloud2ConstPtr &cloud0_msg)
     LidarData<PointT> one_lidar_data;
     one_lidar_data.point_cloud = getCloudFromMsg(cloud0_msg); 
     data.all_lidar_data.emplace_back(0, std::move(one_lidar_data));  
-    m_estimate.lock();
-    all_cloud_buf.push(std::move(data));  
-    m_estimate.unlock();
+    System->Process(data);     // 传入 
 }
 
-
-/**
- * @brief:  送入算法系统
- */
-void Estimate() 
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+void imuHandler(sensor_msgs::ImuConstPtr const& imu_msg) 
 {
-    while(1)
-    {
-        m_estimate.lock(); 
-        if (!all_cloud_buf.empty()) 
-        {
-            MultiLidarData<PointT> data = all_cloud_buf.front();   // 获取多激光数据 
-            all_cloud_buf.pop();             
-            System->Process(data);     // 传入 
-        }
-        m_estimate.unlock();     
-        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    // 保证队列中 数据的顺序正确 
+    static double last_imu_t = -1; 
+    if (imu_msg->header.stamp.toSec() <= last_imu_t) {
+        ROS_WARN("imu message in disorder!");
+        return;
     }
+    last_imu_t = imu_msg->header.stamp.toSec();
+    // 解析IMU数据 
+    ImuDataPtr imu_data_ptr = std::make_shared<ImuData>();
+    // 保存时间戳 
+    imu_data_ptr->timestamp = imu_msg->header.stamp.toSec();
+    imu_data_ptr->acc << imu_msg->linear_acceleration.x, 
+                        imu_msg->linear_acceleration.y,
+                        imu_msg->linear_acceleration.z;
+    imu_data_ptr->gyro << imu_msg->angular_velocity.x,
+                        imu_msg->angular_velocity.y,
+                        imu_msg->angular_velocity.z;
+    imu_data_ptr->rot.w() = imu_msg->orientation.w;
+    imu_data_ptr->rot.x() = imu_msg->orientation.x;
+    imu_data_ptr->rot.y() = imu_msg->orientation.y;
+    imu_data_ptr->rot.z() = imu_msg->orientation.z;
+
+    // m_buf.lock();
+    // imu_buf.push(imu_data_ptr);
+    // m_buf.unlock();
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+void gnssHandler(sensor_msgs::NavSatFixConstPtr const& navsat_msg) 
+{
+    // 保证队列中 数据的顺序正确 
+    static double last_gnss_t = -1; 
+    if (navsat_msg->header.stamp.toSec() <= last_gnss_t) {
+        ROS_WARN("gnss message in disorder!");
+        return;
+    }
+    last_gnss_t = navsat_msg->header.stamp.toSec();
+    // 解析Gnss数据 
+    GnssDataPtr gnss_data_ptr = std::make_shared<GnssData>();
+    // 保存时间戳 
+    gnss_data_ptr->timestamp = navsat_msg->header.stamp.toSec();
+    gnss_data_ptr->lla << navsat_msg->latitude,
+                        navsat_msg->longitude,
+                        navsat_msg->altitude;
+    gnss_data_ptr->cov = Eigen::Map<const Eigen::Matrix3d>(navsat_msg->position_covariance.data());
+
+    // m_buf.lock();
+    // gnss_buf.push(gnss_data_ptr);
+    // m_buf.unlock();
 }
 
 Eigen::Isometry3d trans_odom2map = Eigen::Isometry3d::Identity();
@@ -506,8 +540,12 @@ int main(int argc, char **argv)
         std::cout<<"use single lidar, topic is: "<<lidar_topic_container[0]<<std::endl;
         lidar_single = private_nh.subscribe(lidar_topic_container[0], 100, dataProcessCallbackOne);
     }
-    // 启动估计线程
-    std::thread estimate_thread(Estimate);
+    ros::Subscriber subImu;                             // IMU
+    ros::Subscriber subGnss;                           // gnss    提供真值用于比较      
+    subImu = private_nh.subscribe(imu_topic, 1000, &imuHandler,
+                                                    ros::TransportHints().tcpNoDelay());
+    subGnss = private_nh.subscribe(gnss_topic, 1000, &gnssHandler, 
+                                                    ros::TransportHints().tcpNoDelay());  
     std::thread processResult_thread(processResult);
     ros::spin();
     return 0;

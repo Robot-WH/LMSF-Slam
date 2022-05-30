@@ -9,3 +9,7 @@ multiSensorFusion_slam:
       index_1: "/right/velodyne_points"
     scan: 16
     scan_period: 0.1
+  imu:
+    topic: "/imu/data"
+  gnss:
+    topic: "/gps/fix"
