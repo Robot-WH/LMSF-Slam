@@ -21,7 +21,7 @@ namespace Slam3D {
     struct KeyFrameInfo
     {
         double time_stamps_;  
-        std::vector<KeyFrame> new_keyframes_;
+        std::deque<KeyFrame> new_keyframes_;
         std::deque<Vertex> vertex_database_; 
         std::deque<Edge> edge_database_; 
     };
@@ -35,10 +35,12 @@ namespace Slam3D {
 
             std::string keyframes_save_path_ = "/home/lwh/code/lwh_ws-master/src/liv_slam-master/Map";  
             // 新添加的关键帧的处理队列
-            std::vector<KeyFrame> new_keyframe_queue_;
+            std::deque<KeyFrame> new_keyframe_queue_;
+            std::deque<FeaturePointCloudContainer<_FeatureT>> new_keyframe_points_queue_;
             // optOdom坐标系到map坐标系的变换     有GNSS的时候才有用
             Eigen::Isometry3d trans_odom2map_ = Eigen::Isometry3d::Identity();
             std::mutex keyframe_queue_mutex_;
+            boost::shared_mutex keyframe_queue_sm_; 
             //std::thread backend_thread_;
         public:
             virtual ~BackEndOptimizationBase() {}
@@ -53,7 +55,7 @@ namespace Slam3D {
             virtual void Load() = 0; 
             virtual void ForceGlobalOptimaze() = 0; 
         protected:
-            virtual void process() = 0;     // 处理线程
+            virtual void mapping() = 0;     // 处理线程
             virtual bool optimize() = 0;  
     }; // class
 } // namespace 

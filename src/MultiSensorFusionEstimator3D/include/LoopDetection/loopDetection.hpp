@@ -1,9 +1,7 @@
 /*
  * @Copyright(C): Your Company
- * @FileName: 文件名
- * @Author: 作者
- * @Version: 版本
- * @Date: 2022-04-29 16:56:00
+ * @Author: lwh
+ * @Version: 1.0
  * @Description: 闭环检测 - 基于激光描述子 + 几何位置    
  * @Others: 
  */
@@ -202,8 +200,7 @@ namespace Slam3D
             }
 
             // 保存回环模块数据    
-            void Save(std::string const& path)
-            {
+            void Save(std::string const& path) {
                 scene_recognizer_.Save(path); 
             }
 
@@ -226,9 +223,17 @@ namespace Slam3D
              * @return 查找到的数量 
              */            
             int HistoricalPositionSearch(pcl::PointXYZ const& pos, double const& max_search_dis,
-                                                                                        uint16_t const& max_search_num, std::vector<int> &search_ind,
-                                                                                        std::vector<float> &search_dis)
+                                                                        uint16_t const& max_search_num, std::vector<int> &search_ind,
+                                                                        std::vector<float> &search_dis)
             {   
+                // 检查是否需要更新位置点云   确保包含历史所有节点的位置信息
+                if (kdtree_size_ != PoseGraphDataBase::GetInstance().ReadVertexNum()) 
+                {  
+                    pcl::PointCloud<pcl::PointXYZ>::Ptr keyframe_position_cloud =
+                        PoseGraphDataBase::GetInstance().GetKeyFramePositionCloud();  
+                    kdtreeHistoryKeyPoses->setInputCloud(keyframe_position_cloud);
+                    kdtree_size_ = keyframe_position_cloud->size();
+                }
                 if (max_search_dis <= 0) {
                     // KNN搜索
                     return kdtreeHistoryKeyPoses->nearestKSearch(pos, max_search_num, search_ind, search_dis); 
@@ -458,11 +463,6 @@ namespace Slam3D
                                                                                     + std::to_string(ind++) + ".pcd"
                                                                                         , *res_points);
                         #endif
-                        // 回环后更新位姿kdtree   
-                        if (kdtree_size_ != keyframe_position_cloud->size()) {
-                            kdtreeHistoryKeyPoses->setInputCloud(keyframe_position_cloud);
-                            kdtree_size_ = keyframe_position_cloud->size();
-                        }
                         // 添加新增回环边
                         Edge new_loop; 
                         new_loop.link_id_.first = res.first;
