@@ -26,6 +26,14 @@ namespace Slam3D {
         std::deque<Edge> edge_database_; 
     };
 
+    template<typename _T>
+    struct LocalizationPointsInfo
+    {
+        double time_stamps_;  
+        std::unordered_map<std::string, typename pcl::PointCloud<_T>::ConstPtr> scan_; 
+        std::unordered_map<std::string, typename pcl::PointCloud<_T>::ConstPtr> map_;
+    };
+
     template<typename _FeatureT>
     class BackEndOptimizationBase
     {

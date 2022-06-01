@@ -381,11 +381,12 @@ namespace Slam3D
             template<typename _PointT>
             bool GetAdjacentLinkNodeLocalMap(uint64_t const& center_id, uint16_t const& neighbors_num, 
                                                                                         std::string const& points_name, 
-                                                                                        typename pcl::PointCloud<_PointT>::Ptr &local_map)
+                                                                                        typename pcl::PointCloud<_PointT>::ConstPtr &local_map)
             {
                 uint64_t keyframe_num = cloudKeyFramePosition3D_->size();  
                 pcl::PointCloud<_PointT> origin_points;   // 激光坐标系下的点云
                 pcl::PointCloud<_PointT> trans_points;   // 转换到世界坐标系下的点云 
+                typename pcl::PointCloud<_PointT>::Ptr map(new pcl::PointCloud<_PointT>()); 
                 for (int16_t i = -neighbors_num; i <= neighbors_num; i++ )
                 {
                     int64_t index = center_id + i;
@@ -405,8 +406,9 @@ namespace Slam3D
                         return false;  
                     }
                     pcl::transformPointCloud (origin_points, trans_points, pose.matrix()); // 转到世界坐标  
-                    *local_map += trans_points; 
+                    *map += trans_points; 
                 }
+                local_map = map;  
                 return true;  
             }
 

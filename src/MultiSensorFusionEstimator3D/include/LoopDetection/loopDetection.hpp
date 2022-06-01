@@ -108,11 +108,11 @@ namespace Slam3D
                 if (res.first == -1) return res; 
                 // step2 采用粗匹配 + 细匹配模式求解出位姿
                 PoseGraphDataBase& poseGraph_database = PoseGraphDataBase::GetInstance(); 
-                std::unordered_map<std::string, typename pcl::PointCloud<_PointType>::Ptr> owned_localmap;  
+                std::unordered_map<std::string, typename pcl::PointCloud<_PointType>::ConstPtr> owned_localmap;  
                 // 将粗匹配所需要的点云local map 提取出来 
                 for (auto const& name : rough_registration_specific_name_)
                 {   // 从数据库中查找 名字为 name 的点云 
-                    typename pcl::PointCloud<_PointType>::Ptr local_map(new pcl::PointCloud<_PointType>());
+                    typename pcl::PointCloud<_PointType>::ConstPtr local_map(new pcl::PointCloud<_PointType>());
                     if (!poseGraph_database.GetAdjacentLinkNodeLocalMap<_PointType>(
                         res.first, 5, name, local_map))
                     {
@@ -141,7 +141,7 @@ namespace Slam3D
                 // 将细匹配所需要的点云local map 提取出来 
                 for (auto const& name : refine_registration_specific_name_)
                 {
-                    typename pcl::PointCloud<_PointType>::Ptr local_map(new pcl::PointCloud<_PointType>());
+                    typename pcl::PointCloud<_PointType>::ConstPtr local_map(new pcl::PointCloud<_PointType>());
                     // 如果 细匹配所需要的local map 在之前粗匹配时  已经提取了
                     if (owned_localmap.find(name) != owned_localmap.end()) {
                         local_map = owned_localmap[name];  
@@ -162,7 +162,7 @@ namespace Slam3D
                     return res;  
                 }
                 // step3 检验   
-                typename pcl::PointCloud<_PointType>::Ptr local_map(new pcl::PointCloud<_PointType>());
+                typename pcl::PointCloud<_PointType>::ConstPtr local_map(new pcl::PointCloud<_PointType>());
                 std::string required_name = align_evaluator_.GetTargetName();    // 获取检验模块需要的点云标识名
                 if (owned_localmap.find(required_name) != owned_localmap.end()) {
                     local_map = owned_localmap[required_name];  
@@ -347,12 +347,12 @@ namespace Slam3D
                             res.second = historical_pose * res.second;    // 位姿初始值
                         }
                         // 粗匹配
-                        std::unordered_map<std::string, typename pcl::PointCloud<_PointType>::Ptr> owned_localmap;  
+                        std::unordered_map<std::string, typename pcl::PointCloud<_PointType>::ConstPtr> owned_localmap;  
                         FeaturePointCloudContainer<_PointType>  owned_curr_scan; 
                         // 将粗匹配所需要的点云提取出来 
                         for (auto const& name : rough_registration_specific_name_)
                         {   // local map 
-                            typename pcl::PointCloud<_PointType>::Ptr local_map(new pcl::PointCloud<_PointType>());
+                            typename pcl::PointCloud<_PointType>::ConstPtr local_map(new pcl::PointCloud<_PointType>());
                             if (!poseGraph_database.GetAdjacentLinkNodeLocalMap<_PointType>(
                                 res.first, 5, name, local_map))
                             {
@@ -379,7 +379,7 @@ namespace Slam3D
                             continue; 
                         }
                         // 匹配评估
-                        typename pcl::PointCloud<_PointType>::Ptr evaluative_local_map(new pcl::PointCloud<_PointType>());
+                        typename pcl::PointCloud<_PointType>::ConstPtr evaluative_local_map(new pcl::PointCloud<_PointType>());
                         // 检验需要的是  名为POINTS_PROCESSED_NAME 的点云 
                         if (owned_localmap.find(POINTS_PROCESSED_NAME) != owned_localmap.end()) {
                             evaluative_local_map = owned_localmap[POINTS_PROCESSED_NAME];  
@@ -416,7 +416,7 @@ namespace Slam3D
                         // 将细匹配所需要的点云提取出来 
                         for (auto const& name : refine_registration_specific_name_)
                         {
-                            typename pcl::PointCloud<_PointType>::Ptr local_map(new pcl::PointCloud<_PointType>());
+                            typename pcl::PointCloud<_PointType>::ConstPtr local_map(new pcl::PointCloud<_PointType>());
                             // 如果 细匹配所需要的local map 在之前粗匹配时  已经提取了   那么直接用原数据
                             if (owned_localmap.find(name) != owned_localmap.end()) {
                                 local_map = owned_localmap[name];  

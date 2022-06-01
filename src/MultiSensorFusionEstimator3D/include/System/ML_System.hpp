@@ -170,8 +170,29 @@ namespace Slam3D {
             }
 
             // 保存全局地图
-            void SaveGlobalMap()
-            {
+            void SaveGlobalMap(float resolution, std::string save_path)
+            {   
+                typename pcl::PointCloud<_PointT>::Ptr global_map(new pcl::PointCloud<_PointT>());
+                // 遍历全部节点
+                uint64_t num = PoseGraphDataBase::GetInstance().ReadVertexNum();
+                for (uint64_t i = 0; i < num; i++)
+                {
+                    typename pcl::PointCloud<_PointT>::Ptr origin_points(new pcl::PointCloud<_PointT>());
+                    pcl::PointCloud<_PointT> trans_points;   // 转换到世界坐标系下的点云 
+                    // 读取该节点的点云
+                    PoseGraphDataBase::GetInstance().GetKeyFramePointCloud<_PointT>(
+                        POINTS_PROCESSED_NAME, i, origin_points);
+                    // 读取节点的位姿
+                    Eigen::Isometry3d pose;
+                    PoseGraphDataBase::GetInstance().SearchVertexPose(i, pose);
+                    pcl::transformPointCloud(*origin_points, trans_points, pose.matrix()); // 转到世界坐标  
+                    *global_map += trans_points;
+                }
+                // 滤波
+                Algorithm::VoxelGridFilter<_PointT> voxel_filter; 
+                voxel_filter.Reset("VoxelGrid", resolution); 
+                typename pcl::PointCloud<_PointT>::Ptr cloud_out = voxel_filter.Filter(global_map); 
+                pcl::io::savePCDFileBinary(save_path + "/global_map.pcd", *cloud_out);
             }
             
             /**

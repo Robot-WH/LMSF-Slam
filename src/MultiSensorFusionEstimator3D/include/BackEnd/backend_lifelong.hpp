@@ -88,6 +88,7 @@ namespace Slam3D {
                 // 数据注册   
                 DataManager::GetInstance().Registration<KeyFrameInfo<_FeatureT>>("keyframes_info", 1);
                 DataManager::GetInstance().Registration<Eigen::Isometry3d>("odom_to_map", 1);
+                DataManager::GetInstance().Registration<LocalizationPointsInfo<_FeatureT>>("loc_points", 1);
             }
 
             /**
@@ -154,13 +155,14 @@ namespace Slam3D {
                     }
                     return; 
                 } 
+                boost::unique_lock<boost::shared_mutex> lock(base::keyframe_queue_sm_);
                 // 将输入的数据放入待处理队列 
                 KeyFrame keyframe(lidar_data.time_stamp_, odom);
                 keyframe.between_constraint_ = between_constraint;      // 获取该关键帧与上一关键帧之间的相对约束  last<-curr 
                 base::new_keyframe_queue_.push_back(keyframe);     
                 base::new_keyframe_points_queue_.push_back(lidar_data.pointcloud_data_); 
                 // 如果是建图阶段   则需要发布图优化相关数据   供其他模块使用    
-                if (work_mode != MAPPING) return;  
+                if (work_mode != MAPPING) return;  c
                 KeyFrameInfo<_FeatureT> keyframe_info; 
                 keyframe_info.time_stamps_ = keyframe.time_stamp_;  
                 keyframe_info.vertex_database_ = PoseGraphDataBase::GetInstance().GetAllVertex(); 
@@ -216,11 +218,13 @@ namespace Slam3D {
                         std::this_thread::sleep_for(dura);
                         continue;  
                     }
+                    base::keyframe_queue_sm_.lock_shared();
                     assert(loop_detect_ != nullptr);    // 检查回环模块是否被初始化
                     assert(base::new_keyframe_queue_.size() == base::new_keyframe_points_queue_.size()); 
                     // 如果没有新的关键帧  
                     if (base::new_keyframe_queue_.empty()) 
                     {
+                        base::keyframe_queue_sm_.unlock_shared();
                         std::chrono::milliseconds dura(10);
                         std::this_thread::sleep_for(dura);
                         continue;  
@@ -229,34 +233,59 @@ namespace Slam3D {
                     // 取出最早的帧  进行map匹配
                     KeyFrame& keyframe = base::new_keyframe_queue_.front(); 
                     FeaturePointCloudContainer<_FeatureT>& points = base::new_keyframe_points_queue_.front();
+                    base::keyframe_queue_sm_.unlock_shared();
                     TicToc tt;  
+                    std::cout<<common::GREEN<<" keyframe.odom_: "<< keyframe.odom_.matrix()<<std::endl;
                     Eigen::Isometry3d pose_in_map = base::trans_odom2map_ * keyframe.odom_;  
+                    std::cout<<common::RED<<"base::trans_odom2map_: "<<base::trans_odom2map_.matrix()<<std::endl;
+                    std::cout<<common::GREEN<<"before loc pose_in_map: "<<pose_in_map.matrix()<<std::endl;
                     pcl::PointXYZ curr_pos(pose_in_map.translation().x(), 
                                                                     pose_in_map.translation().y(), 
                                                                     pose_in_map.translation().z());
                     std::vector<int> search_ind;
                     std::vector<float> search_dis;
-                    loop_detect_->HistoricalPositionSearch(curr_pos, 0, 1, search_ind, search_dis);   // 搜索最近的一个历史关键帧
+                    loop_detect_->HistoricalPositionSearch(curr_pos, 0, 10, search_ind, search_dis);   // 搜索最近的历史关键帧
+                    std::cout<<"near node: "<<search_ind[0]<<std::endl;
                     /**
                      * @todo 如果啥都搜不到呢？
                      */                    
                     if (!search_ind.empty()) 
                     {
-                        std::unordered_map<std::string, typename pcl::PointCloud<_FeatureT>::Ptr> owned_localmap;  
+                        LocalizationPointsInfo<_FeatureT> loc_points;  
                         // 将定位所需要的点云local map 提取出来 
                         for (auto const& name : localize_registration_->GetUsedPointsName())
                         {   // 从数据库中查找 名字为 name 的点云 
                             typename pcl::PointCloud<_FeatureT>::Ptr local_map(new pcl::PointCloud<_FeatureT>());
-                            if (!PoseGraphDataBase::GetInstance().GetAdjacentLinkNodeLocalMap<_FeatureT>(
-                                search_ind[0], 5, name, local_map))
+                            // if (!PoseGraphDataBase::GetInstance().GetAdjacentLinkNodeLocalMap<_FeatureT>(
+                            //     search_ind[0], 5, name, local_map))
+                            // {
+                            //     std::cout<<common::RED<<"错误: 找不到定位用的地图 "
+                            //     <<name<<common::RESET<<std::endl;
+                            //     throw std::bad_exception();  
+                            // }
+                            for (int i = 0; i < search_ind.size(); i++)
                             {
-                                std::cout<<common::RED<<"错误: 找不到定位用的地图 "
-                                <<name<<common::RESET<<std::endl;
-                                throw std::bad_exception();  
+                                typename pcl::PointCloud<_FeatureT>::Ptr origin_points(new pcl::PointCloud<_FeatureT>());
+                                if (!PoseGraphDataBase::GetInstance().GetKeyFramePointCloud<_FeatureT>(name, 
+                                        search_ind[i], origin_points))
+                                {
+                                    std::cout<<common::RED<<"错误: 找不到定位用的地图 "
+                                    <<name<<common::RESET<<std::endl;
+                                    throw std::bad_exception();  
+                                }
+                                // 读取节点的位姿
+                                pcl::PointCloud<_FeatureT> trans_points;   // 转换到世界坐标系下的点云 
+                                Eigen::Isometry3d pose;
+                                PoseGraphDataBase::GetInstance().SearchVertexPose(search_ind[i], pose);
+                                pcl::transformPointCloud(*origin_points, trans_points, pose.matrix()); // 转到世界坐标  
+                                *local_map += trans_points; 
                             }
                             localize_registration_->SetInputSource(std::make_pair(name, local_map)); 
-                            owned_localmap[name] = local_map; 
+                            loc_points.map_[name] = local_map; 
+                            //loc_points.scan_[name] =  points.at(name); 
                         }
+                        loc_points.time_stamps_ = keyframe.time_stamp_; 
+                        DataManager::GetInstance().AddData("loc_points", loc_points);      // 发布定位map 
                         localize_registration_->SetInputTarget(points);
                         if (!localize_registration_->Registration(pose_in_map)) {
                             std::cout<<common::RED<<"错误: 定位匹配无法收敛！转换到重定位模式..."
@@ -264,23 +293,42 @@ namespace Slam3D {
                             work_mode = RELOCALIZATION;
                             continue;  
                         }
+                        std::cout<<common::GREEN<<"after loc pose_in_map: "<<pose_in_map.matrix()<<std::endl;
                         tt.toc("localization ");
                         tt.tic(); 
                         // 匹配评估
-                        typename pcl::PointCloud<_FeatureT>::Ptr local_map(new pcl::PointCloud<_FeatureT>());
+                        typename pcl::PointCloud<_FeatureT>::ConstPtr eva_local_map(new pcl::PointCloud<_FeatureT>());
                         std::string required_name = align_evaluator_.GetTargetName();    // 获取检验模块需要的点云标识名
-                        if (owned_localmap.find(required_name) != owned_localmap.end()) {
-                            local_map = owned_localmap[required_name];  
+                        if (loc_points.map_.find(required_name) != loc_points.map_.end()) {
+                            eva_local_map = loc_points.map_[required_name];  
                         } else {  
-                            if (!PoseGraphDataBase::GetInstance().GetAdjacentLinkNodeLocalMap<_FeatureT>(
-                                search_ind[0], 5, required_name, local_map)) {
+                            // if (!PoseGraphDataBase::GetInstance().GetAdjacentLinkNodeLocalMap<_FeatureT>(
+                            //     search_ind[0], 5, required_name, local_map)) {
+                            //         std::cout<<common::RED<<"错误：定位模式找不到evaluate map"<<common::RESET<<std::endl;
+                            //         throw std::bad_exception();  
+                            // }
+                            typename pcl::PointCloud<_FeatureT>::Ptr local_map(new pcl::PointCloud<_FeatureT>());
+                            for (int i = 0; i < search_ind.size(); i++)
+                            {
+                                typename pcl::PointCloud<_FeatureT>::Ptr origin_points(new pcl::PointCloud<_FeatureT>());
+                                if (!PoseGraphDataBase::GetInstance().GetKeyFramePointCloud<_FeatureT>(required_name, 
+                                    search_ind[i], origin_points))
+                                {
                                     std::cout<<common::RED<<"错误：定位模式找不到evaluate map"<<common::RESET<<std::endl;
                                     throw std::bad_exception();  
+                                }
+                                // 读取节点的位姿
+                                pcl::PointCloud<_FeatureT> trans_points;   // 转换到世界坐标系下的点云 
+                                Eigen::Isometry3d pose;
+                                PoseGraphDataBase::GetInstance().SearchVertexPose(search_ind[i], pose);
+                                pcl::transformPointCloud(*origin_points, trans_points, pose.matrix()); // 转到世界坐标  
+                                *local_map += trans_points; 
                             }
+                            eva_local_map = local_map;
                         }
-                        align_evaluator_.SetTargetPoints(local_map);      // 0-15ms 
+                        align_evaluator_.SetTargetPoints(eva_local_map);      // 0-15ms 
                         std::pair<double, double> res = align_evaluator_.AlignmentScore(points.at(required_name), 
-                                                                                                                                pose_in_map.matrix().cast<float>(), 0.1, 0.5); // 0-10ms 
+                                                                                            pose_in_map.matrix().cast<float>(), 0.1, 0.5); // 0-10ms 
                         tt.toc("evaluate ");                                                                                                          
                         std::cout<<"score: "<<res.first<<std::endl;
                         std::cout<<"overlap_ratio: "<<res.second<<std::endl;
@@ -296,12 +344,20 @@ namespace Slam3D {
                                                                                         pose_in_map.matrix().cast<float>());
                                 static uint16_t ind = 0; 
                                 typename pcl::PointCloud<_FeatureT>::Ptr res_points(new pcl::PointCloud<_FeatureT>());
-                                *res_points = *local_map + input_transformed; 
+                                *res_points = *eva_local_map;
+                                 *res_points += input_transformed; 
                                 pcl::io::savePCDFileBinary(
-                                    "/home/lwh/code/lwh_ws-master/src/liv_slam-master/slam_data/point_cloud/loc_err_all.pcd", *res_points);
+                                    "/home/lwh/code/lwh_ws-master/src/liv_slam-master/slam_data/point_cloud/loc_err_all.pcd"
+                                    , *res_points);
                                 pcl::io::savePCDFileBinary(
                                     "/home/lwh/code/lwh_ws-master/src/liv_slam-master/slam_data/point_cloud/loc_err_map.pcd"
-                                                            , *local_map);
+                                    , *eva_local_map);
+                                pcl::io::savePCDFileBinary(
+                                    "/home/lwh/code/lwh_ws-master/src/liv_slam-master/slam_data/point_cloud/loc_err_scan.pcd"
+                                    , *points.at(required_name));
+                                pcl::io::savePCDFileBinary(
+                                    "/home/lwh/code/lwh_ws-master/src/liv_slam-master/slam_data/point_cloud/loc_err_scan_trans.pcd"
+                                    , input_transformed);
                             #endif
                             continue;  
                         }
@@ -319,16 +375,20 @@ namespace Slam3D {
                                 keyframe.adjacent_id_ = search_ind[0];  
                                 keyframe.between_constraint_ = relpose;      // 获取该关键帧与上一关键帧之间的相对约束  last<-curr       
                                 work_mode = MAPPING;
-                                base::trans_odom2map_ = pose_in_map * keyframe.odom_.inverse();  
-                                DataManager::GetInstance().AddData("odom_to_map", base::trans_odom2map_);      // 发布坐标变换
                                 //return;  // 退出线程
+                                base::trans_odom2map_ = pose_in_map * keyframe.odom_.inverse();  
+                                std::cout<<common::RED<<"update base::trans_odom2map_: "<<base::trans_odom2map_.matrix()<<std::endl;
+                                DataManager::GetInstance().AddData("odom_to_map", base::trans_odom2map_);      // 发布坐标变换
+                                continue; 
                             }
-                        } else {
-                            base::new_keyframe_queue_.pop_front(); 
-                            base::new_keyframe_points_queue_.pop_front();
-                        }
+                        } 
                         base::trans_odom2map_ = pose_in_map * keyframe.odom_.inverse();  
+                        std::cout<<common::RED<<"update base::trans_odom2map_: "<<base::trans_odom2map_.matrix()<<std::endl;
                         DataManager::GetInstance().AddData("odom_to_map", base::trans_odom2map_);      // 发布坐标变换
+                        base::keyframe_queue_sm_.lock();
+                        base::new_keyframe_queue_.pop_front(); 
+                        base::new_keyframe_points_queue_.pop_front();
+                        base::keyframe_queue_sm_.unlock(); 
                     } 
                     std::chrono::milliseconds dura(10);
                     std::this_thread::sleep_for(dura);
@@ -365,11 +425,11 @@ namespace Slam3D {
                             database.UpdateVertexPose(i, optimizer_->ReadOptimizedPose(i)); 
                         }
                         tt.toc("update dataset ");
-                        base::keyframe_queue_mutex_.lock();  
+                        base::keyframe_queue_sm_.lock();  
                         // 计算坐标转换矩阵
                         base::trans_odom2map_ = database.GetLastVertex().pose_ 
                                                                                   * database.GetLastKeyFrameData().odom_.inverse();  
-                        base::keyframe_queue_mutex_.unlock();  
+                        base::keyframe_queue_sm_.unlock();  
                         if (has_loop_) 
                         {
                             work_mode = LOCALIZATION; // 进入定位模式 
@@ -388,7 +448,7 @@ namespace Slam3D {
              */            
             bool processData()
             {
-                std::lock_guard<std::mutex> lock(base::keyframe_queue_mutex_);
+                boost::unique_lock<boost::shared_mutex> lock(base::keyframe_queue_sm_);
                 if (base::new_keyframe_queue_.empty()) {
                     return false;
                 }

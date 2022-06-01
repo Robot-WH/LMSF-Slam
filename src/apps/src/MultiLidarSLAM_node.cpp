@@ -101,7 +101,7 @@ void RosInit(ros::NodeHandle &private_nh)
     }
     markers_pub = private_nh.advertise<visualization_msgs::MarkerArray>("/graph_markers", 10);        // 可视化
     save_data_server = private_nh.advertiseService("/SaveGraph", &SaveDataService);
-    save_map_server = private_nh.advertiseService("/liv_slam/save_map", &SaveMapService);
+    save_map_server = private_nh.advertiseService("/SaveMap", &SaveMapService);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -116,6 +116,10 @@ bool SaveDataService(liv_slam::SaveDataRequest& req, liv_slam::SaveDataResponse&
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool SaveMapService(liv_slam::SaveMapRequest& req, liv_slam::SaveMapResponse& res) 
 {
+    std::string directory = req.destination;
+    System->SaveGlobalMap(req.resolution, directory);  
+    std::cout<<"SaveGlobalMap success! resolution: "<<req.resolution<<std::endl;
+    res.success = true; 
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -373,8 +377,38 @@ void processResult()
     while(1)
     {
         MultiLidarResultInfo<PointT> result;     // 本次读取的结果 
+        LocalizationPointsInfo<PointT> loc_points; // 定位点云
         // odom->map的变换
         DataManager::GetInstance().GetData("odom_to_map", trans_odom2map);
+        // 如果处于定位状态   那么会读取到该数据
+        if (DataManager::GetInstance().GetData<LocalizationPointsInfo<PointT>>("loc_points", loc_points))
+        {
+            ros::Time stamp = ros::Time(loc_points.time_stamps_);  
+            // 发布local map 
+            for(auto iter = loc_points.map_.begin(); 
+                    iter !=  loc_points.map_.end(); iter++)
+            {
+                // std::cout<<"name: "<<iter->first<<std::endl;
+                if (iter->first == "loam_edge")   
+                {
+                    publishCloud( &pubLocalMapEdge[0],    // 发布该点云的话题 
+                                                    iter->second,   // 边缘特征   
+                                                    stamp, "map");     
+                }
+                else if (iter->first == "loam_surf")
+                {
+                    publishCloud( &pubLocalMapSurf[0],    // 发布该点云的话题 
+                                                    iter->second,   // 点云数据   
+                                                    stamp, "map");     
+                }
+                else if (iter->first == POINTS_PROCESSED_NAME)     // 滤波后的
+                {
+                    publishCloud( &pubLocalMapFiltered[0],    // 发布该点云的话题 
+                                                    iter->second,   // 点云数据   
+                                                    stamp, "map");     
+                }
+            }
+        }
         // 获取里程计的结果以及处理完成的点云进行发布
         if (DataManager::GetInstance().GetData<MultiLidarResultInfo<PointT>>("frontend_info", result))
         {  
