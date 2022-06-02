@@ -162,7 +162,7 @@ namespace Slam3D {
                 base::new_keyframe_queue_.push_back(keyframe);     
                 base::new_keyframe_points_queue_.push_back(lidar_data.pointcloud_data_); 
                 // 如果是建图阶段   则需要发布图优化相关数据   供其他模块使用    
-                if (work_mode != MAPPING) return;  c
+                if (work_mode != MAPPING) return;  
                 KeyFrameInfo<_FeatureT> keyframe_info; 
                 keyframe_info.time_stamps_ = keyframe.time_stamp_;  
                 keyframe_info.vertex_database_ = PoseGraphDataBase::GetInstance().GetAllVertex(); 
@@ -235,17 +235,17 @@ namespace Slam3D {
                     FeaturePointCloudContainer<_FeatureT>& points = base::new_keyframe_points_queue_.front();
                     base::keyframe_queue_sm_.unlock_shared();
                     TicToc tt;  
-                    std::cout<<common::GREEN<<" keyframe.odom_: "<< keyframe.odom_.matrix()<<std::endl;
+                    // std::cout<<common::GREEN<<" keyframe.odom_: "<< keyframe.odom_.matrix()<<std::endl;
                     Eigen::Isometry3d pose_in_map = base::trans_odom2map_ * keyframe.odom_;  
-                    std::cout<<common::RED<<"base::trans_odom2map_: "<<base::trans_odom2map_.matrix()<<std::endl;
-                    std::cout<<common::GREEN<<"before loc pose_in_map: "<<pose_in_map.matrix()<<std::endl;
+                    // std::cout<<common::RED<<"base::trans_odom2map_: "<<base::trans_odom2map_.matrix()<<std::endl;
+                    // std::cout<<common::GREEN<<"before loc pose_in_map: "<<pose_in_map.matrix()<<std::endl;
                     pcl::PointXYZ curr_pos(pose_in_map.translation().x(), 
                                                                     pose_in_map.translation().y(), 
                                                                     pose_in_map.translation().z());
                     std::vector<int> search_ind;
                     std::vector<float> search_dis;
                     loop_detect_->HistoricalPositionSearch(curr_pos, 0, 10, search_ind, search_dis);   // 搜索最近的历史关键帧
-                    std::cout<<"near node: "<<search_ind[0]<<std::endl;
+                    //std::cout<<"near node: "<<search_ind[0]<<std::endl;
                     /**
                      * @todo 如果啥都搜不到呢？
                      */                    
@@ -256,13 +256,7 @@ namespace Slam3D {
                         for (auto const& name : localize_registration_->GetUsedPointsName())
                         {   // 从数据库中查找 名字为 name 的点云 
                             typename pcl::PointCloud<_FeatureT>::Ptr local_map(new pcl::PointCloud<_FeatureT>());
-                            // if (!PoseGraphDataBase::GetInstance().GetAdjacentLinkNodeLocalMap<_FeatureT>(
-                            //     search_ind[0], 5, name, local_map))
-                            // {
-                            //     std::cout<<common::RED<<"错误: 找不到定位用的地图 "
-                            //     <<name<<common::RESET<<std::endl;
-                            //     throw std::bad_exception();  
-                            // }
+
                             for (int i = 0; i < search_ind.size(); i++)
                             {
                                 typename pcl::PointCloud<_FeatureT>::Ptr origin_points(new pcl::PointCloud<_FeatureT>());
@@ -293,7 +287,7 @@ namespace Slam3D {
                             work_mode = RELOCALIZATION;
                             continue;  
                         }
-                        std::cout<<common::GREEN<<"after loc pose_in_map: "<<pose_in_map.matrix()<<std::endl;
+                        //std::cout<<common::GREEN<<"after loc pose_in_map: "<<pose_in_map.matrix()<<std::endl;
                         tt.toc("localization ");
                         tt.tic(); 
                         // 匹配评估
@@ -302,11 +296,6 @@ namespace Slam3D {
                         if (loc_points.map_.find(required_name) != loc_points.map_.end()) {
                             eva_local_map = loc_points.map_[required_name];  
                         } else {  
-                            // if (!PoseGraphDataBase::GetInstance().GetAdjacentLinkNodeLocalMap<_FeatureT>(
-                            //     search_ind[0], 5, required_name, local_map)) {
-                            //         std::cout<<common::RED<<"错误：定位模式找不到evaluate map"<<common::RESET<<std::endl;
-                            //         throw std::bad_exception();  
-                            // }
                             typename pcl::PointCloud<_FeatureT>::Ptr local_map(new pcl::PointCloud<_FeatureT>());
                             for (int i = 0; i < search_ind.size(); i++)
                             {
@@ -377,13 +366,13 @@ namespace Slam3D {
                                 work_mode = MAPPING;
                                 //return;  // 退出线程
                                 base::trans_odom2map_ = pose_in_map * keyframe.odom_.inverse();  
-                                std::cout<<common::RED<<"update base::trans_odom2map_: "<<base::trans_odom2map_.matrix()<<std::endl;
+                                //std::cout<<common::RED<<"update base::trans_odom2map_: "<<base::trans_odom2map_.matrix()<<std::endl;
                                 DataManager::GetInstance().AddData("odom_to_map", base::trans_odom2map_);      // 发布坐标变换
                                 continue; 
                             }
                         } 
                         base::trans_odom2map_ = pose_in_map * keyframe.odom_.inverse();  
-                        std::cout<<common::RED<<"update base::trans_odom2map_: "<<base::trans_odom2map_.matrix()<<std::endl;
+                        //std::cout<<common::RED<<"update base::trans_odom2map_: "<<base::trans_odom2map_.matrix()<<std::endl;
                         DataManager::GetInstance().AddData("odom_to_map", base::trans_odom2map_);      // 发布坐标变换
                         base::keyframe_queue_sm_.lock();
                         base::new_keyframe_queue_.pop_front(); 
@@ -408,7 +397,6 @@ namespace Slam3D {
                         std::this_thread::sleep_for(dura);
                         continue;  
                     }
-                    std::cout<<common::YELLOW<<"mapping ------------"<<common::RESET<<std::endl;
                     // 数据处理 
                     if (!processData()) 
                     {
@@ -452,7 +440,6 @@ namespace Slam3D {
                 if (base::new_keyframe_queue_.empty()) {
                     return false;
                 }
-                //std::cout<<common::RED<<"base::new_keyframe_queue_.size(): "<<base::new_keyframe_queue_.size() <<common::RESET<<std::endl;
                 // 处理的数量  
                 int num_processed = std::min<int>(base::new_keyframe_queue_.size(), 
                                                                                             max_keyframes_per_update_);
